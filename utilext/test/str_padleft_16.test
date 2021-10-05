@@ -1,0 +1,66 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the padleft() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test source_null {Verify NULL return with NULL source arg} -body {
+  return [elem0 [db eval {select padleft(NULL, 3);}]]
+} -result NULL
+
+
+test len_null {Verify source return with NULL length arg} -body {
+  return [elem0 [db eval {select padleft('Android', NULL);}]]
+} -result Android
+
+
+test source_long {Verify source return with source longer than length arg} -body {
+  return [elem0 [db eval {select padleft('Hello World', 9);}]]
+} -result {Hello World}
+
+
+test normal {Verify correct padding} -body {
+  return [elem0 [db eval {select padleft('Bitumen', 12);}]]
+} -result {     Bitumen}
+
+
+test len_zero {Verify source return with zero length arg} -body {
+  return [elem0 [db eval {select padleft('Anthracite', 0);}]]
+} -result Anthracite
+
+
+test len_low {Verify error with too low length arg} -body {
+  db eval {select padleft('Marble', -1);}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+test unicode1 {Verify correct padding with unicode chars} -body {
+  setup_unicode16 pdb
+  set a [pdb eval {select padleft(source, 34) from test_padleft where id = 1;}]
+  set b [pdb eval {select result from test_padleft where id = 1;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+test unicode2 {Verify source return with length less than character count} -body {
+  setup_unicode16 pdb
+  set a [pdb eval {select padleft(source, 26) from test_padleft where id = 2;}]
+  set b [pdb eval {select result from test_padleft where id = 2;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

@@ -1,0 +1,38 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Regression test for SQLite ticket c0aeea67d58ae0fd
+#
+# The SQLite core showed a problem with the like operator with an escape clause
+# of { ESCAPE '_' }.
+#
+# Our implementation deals with this situation in passing since we have omitted
+# the "matchOne" assignment that is used in the SQLite core (we are not doing
+# globbing), but make sure we pass the test anyway.
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test ticket_c0aeea67d58ae0fd {Fix an issue with the LIKE operator when it includes the ESCAPE '_' clause.} -body {
+  return [db eval {SELECT 'x' LIKE '%' ESCAPE '_';}]
+} -result {1}
+
+db close
+
+setup_16 db
+
+test ticket_c0aeea67d58ae0fd_16 {Fix an issue with the LIKE operator when it includes the ESCAPE '_' clause.} -body {
+  return [db eval {SELECT 'x' LIKE '%' ESCAPE '_';}]
+} -result {1}
+
+db close
+
+tcltest::cleanupTests

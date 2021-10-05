@@ -1,0 +1,53 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the dec_ceil() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test null {Verify NULL returned with a NULL arg} -body {
+  return [elem0 [db eval {select dec_ceil(NULL);}]]
+} -result NULL
+
+
+test zero {Verify 0 is returned with 0} -body {
+  return [elem0 [db eval {select dec_ceil('0');}]]
+} -result 0
+
+
+test min {Verify correct answer with minimum Decimal value} -body {
+  return [elem0 [db eval {select dec_ceil(:DEC_MIN);}]]
+} -result "$DEC_MIN"
+
+
+test max {Verify correct answer with Decimal max value} -body {
+  return [elem0 [db eval {select dec_ceil(:DEC_MAX);}]]
+} -result "$DEC_MAX"
+
+
+test normal_pos {Correct answer with a positive number} -body {
+  return [elem0 [db eval {select dec_ceil('3.459');}]]
+} -result 4
+
+
+test normal_neg {Correct answer with a negative number} -body {
+  return [elem0 [db eval {select dec_ceil('-4.986');}]]
+} -result -4
+
+
+test invalid {Verify parse error on non-numeric arg} -body {
+  db eval {select dec_ceil('fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

@@ -1,0 +1,68 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the 3 argument dec_round() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test null_value {Verify NULL return on NULL value} -body {
+  return [elem0 [db eval {select dec_round(NULL, 2, 'even');}]]
+} -result NULL
+
+
+test half_mode_even {Verify rounding to even from 5} -body {
+  return [elem0 [db eval {select dec_round('2.345', 2, 'even');}]]
+} -result 2.34
+
+
+test half_mode_norm {Verify rounding away from zero from 5} -body {
+  return [elem0 [db eval {select dec_round('2.345', 2, 'norm');}]]
+} -result 2.35
+
+
+test mode_even {Verify normal rounding to even} -body {
+  return [elem0 [db eval {select dec_round('3.2556', 3, 'even');}]]
+} -result 3.256
+
+
+test mode_norm {Verify normal rounding away from zero} -body {
+  return [elem0 [db eval {select dec_round('4.6749', 3, 'norm');}]]
+} -result 4.675
+
+
+test non_numeric_digits {Verify that a non-numeric digit arg converts to 0} -body {
+  return [elem0 [db eval {select dec_round('3.655', 'fred');}]]
+} -result 4
+
+
+test value_invalid {Verify parse error on non-numeric value} -body {
+  db eval {select dec_round('fred', 3, 'even');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test mode_invalid {Verify mode error on invalid mode option} -body {
+  db eval {select dec_round('3.34556', 3, 'fred');}
+} -returnCodes 1 -result $SqliteNotFound
+
+
+test prec_low {Verify precision error} -body {
+  db eval {select dec_round('2.3765', -1, 'norm');}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+test prec_high {Verify precision error} -body {
+  db eval {select dec_round('3.5693', 29, 'norm');}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+db close
+tcltest::cleanupTests

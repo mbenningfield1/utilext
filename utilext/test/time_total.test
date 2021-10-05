@@ -1,0 +1,91 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the aggregate timespan_total() window function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test all_null {Verify 0 result with all args NULL} -body {
+  db eval {drop table if exists t1;
+  create table t1 (times INTEGER);
+  insert into t1 values (NULL), (NULL), (NULL), (NULL);
+  }
+  return [elem0 [db eval {select timespan_total(times) from t1;}]]
+} -result 0
+
+
+test any_null {Verify NULL args are ignored with non-NULL args} -body {
+  db eval {drop table if exists t1;
+  create table t1 (times INTEGER);
+  insert into t1 values (115734873), (294629451), (NULL),
+                        (583434802), (NULL), (198825629);
+  }
+  return [elem0 [db eval {select timespan_total(times) from t1;}]]
+} -result 1192624755
+
+
+test neg_overflow {Verify negative overflow results in error} -body {
+  db eval {drop table if exists t1;
+  create table t1 (times INTEGER);
+  insert into t1 values (-4611686018427387904), (-4611686018427387904), (-100);
+  }
+  db eval {select timespan_total(times) from t1;}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test pos_overflow {Verify positive overflow results in error} -body {
+  db eval {drop table if exists t1;
+  create table t1 (times INTEGER);
+  insert into t1 values (4611686018427387904), (4611686018427387904), (100);
+  }
+  db eval {select timespan_total(times) from t1;}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test no_rows {Verify correct result with zero row count} -body {
+  db eval {drop table if exists t1;
+    create table t1 (a INTEGER);
+    insert into t1 values (123), (234), (345), (456), (567);
+  }
+  return [elem0 [db eval {select timespan_total(a) from t1 where a > 1000;}]]
+} -result 0
+
+
+if {[db version] >= $MinVersionWindow} {
+  test window {Verify window function} -body {
+    if {[db version] < "3.25.0"} {return}
+    db eval {drop table if exists t1;
+    create table t1 (x, y);
+    insert into t1 values ('a', 772672509), ('b', 19509582), ('c', 148801716),
+                          ('d', 118816861), ('e', 79865792);
+    }                          
+    set sums {792182091 940983807 287128159 347484369 198682653}
+    set results [db eval {
+      SELECT x, timespan_total(y) OVER (
+        ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+      ) AS total
+      FROM t1 ORDER BY x;
+    }]
+    set i 0
+    foreach {k j} $results {
+      if {$j != [lindex $sums $i]} {puts "test_window failed with i = $i"}
+      incr i;
+    }
+  } -output {} -result {}
+} else {
+  test window {Empty Test} -constraints noWindowFuncs -body {
+  } -result {}
+}
+
+
+db close
+tcltest::cleanupTests

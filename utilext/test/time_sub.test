@@ -1,0 +1,47 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the timespan_sub() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test null_lhs {Verify NULL return with NULL lhs arg} -body {
+  return [elem0 [db eval {select timespan_sub(NULL, 232342523);}]]
+} -result NULL
+
+
+test null_rhs {Verify NULL return with NULL rhs arg} -body {
+  return [elem0 [db eval {select timespan_sub(2352345234, NULL);}]]
+} -result NULL
+
+
+test normal {Just subtract 2 numbers} -body {
+  return [elem0 [db eval {select timespan_sub(944159759, 337644842);}]]
+} -result 606514917
+
+
+test pos_overflow {Verify error on positive overflow} -body {
+  db eval {select timespan_sub($TIME_MAX, -34);}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test pos_overflow_special {Verify error on positive overflow with LLONG_MIN subtrahend} -body {
+  db eval {select timespan_sub(5, $TIME_MIN);}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test neg_overflow {Verify error on negative overflow} -body {
+  db eval {select timespan_sub($TIME_MIN, 23);}
+} -returnCodes 1 -result $SqliteTooBig
+
+db close
+tcltest::cleanupTests

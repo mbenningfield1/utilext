@@ -1,0 +1,71 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the padcenter() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test source_null {Verify NULL return for NULL source arg} -body {
+  return [elem0 [db eval {select padcenter(NULL, 4);}]]
+} -result NULL
+
+
+test len_null {Verify source return for NULL length arg} -body {
+  return [elem0 [db eval {select padcenter('George', NULL);}]]
+} -result George
+
+
+test source_long {Verify source return with source longer than length} -body {
+  return [elem0 [db eval {select padcenter('Hello World', 5);}]]
+} -result {Hello World}
+
+
+test normal_even {Verify even padding} -body {
+  return [elem0 [db eval {select padcenter('Author', 12);}]]
+} -result {   Author   }
+
+
+test normal_odd {Verify odd padding} -body {
+  return [elem0 [db eval {select padcenter('Title', 10);}]]
+} -result {  Title   }
+
+
+test len_zero {Verify source return with zero length arg} -body {
+  return [elem0 [db eval {select padcenter('Subject', 0);}]]
+} -result Subject
+
+
+test len_low {Verify error with too low length arg} -body {
+  db eval {select padcenter('Albert', -1);}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+test unicode1 {Verify padding with unicode chars} -body {
+  setup_unicode16 pdb
+  set a [pdb eval {select padcenter(source, 36) from test_padcenter where id = 1;}]
+  set b [pdb eval {select result from test_padcenter where id = 1;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+test unicode2 {Verify source return with length less than character count} -body {
+  setup_unicode16 pdb
+  set a [pdb eval {select padcenter(source, 26) from test_padcenter where id = 2;}]
+  set b [pdb eval {select result from test_padcenter where id = 2;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

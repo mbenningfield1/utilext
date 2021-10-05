@@ -1,0 +1,42 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the timespan_neg() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test null {Verify NULL return with NULL arg} -body {
+  return [elem0 [db eval {select timespan_neg(NULL);}]]
+} -result NULL
+
+
+test normal_pos {Verify negation of positive arg} -body {
+  return [elem0 [db eval {select timespan_neg(354874556769);}]]
+} -result -354874556769
+
+
+test normal_neg {Verify negation of negative arg} -body {
+  return [elem0 [db eval {select timespan_neg(-354874556769);}]]
+} -result 354874556769
+
+
+test min {Verify max is returned for min value} -body {
+  return [elem0 [db eval {select timespan_neg($TIME_MIN);}]]
+} -result "$TIME_MAX"
+
+
+test max {Verify negation of max value} -body {
+  return [elem0 [db eval {select timespan_neg($TIME_MAX);}]]
+} -result -9223372036854775807
+
+db close
+tcltest::cleanupTests

@@ -1,0 +1,73 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the timespan_diff() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test iso {Verify correct result with ISO string} -body {
+  set dt1 "2314-11-22T12:33:32"
+  set dt2 "2314-11-21T11:53:31.766"
+  set ts1 888002340000 ;# 1 day 40 min 234 ms
+  set ts2 [db eval {select timespan_diff($dt1, $dt2);}]
+  return [expr {$ts1 == $ts2}]
+} -result {1}
+
+
+test iso_lhs_invalid {Verify invalid ISO string lhs arg results in error} -body {
+  set dt1 fred
+  set dt2 2314-11-22T12:33:32
+  db eval {select timespan_diff($dt1, $dt2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test iso_rhs_invalid {Verify invalid ISO string rhs arg results in error} -body {
+  set dt1 2314-11-22T12:33:32
+  set dt2 fred
+  db eval {select timespan_diff($dt1, $dt2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test mixed_unix_iso {Verify correct result with lhs Unix time and rhs ISO string} -body {
+  set ut [db eval {select strftime('%s', '2314-11-22T12:33:32');}]
+  set ts1 168000000000 ;# 4 hr 40 min
+  set ts2 [db eval "select timespan_diff($ut, '2314-11-22T07:53:32');"]
+  return [expr {$ts1 == $ts2}]  
+} -result {1}
+
+
+test mixed_iso_unix {Verify correct result with lhs ISO string and rhs Unix time} -body {
+  set ut [db eval {select strftime('%s', '2314-11-22T07:53:32');}]
+  set ts1 168000000000 ;# 4 hr 40 min
+  set ts2 [db eval "select timespan_diff('2314-11-22T12:33:32', $ut);"]
+  return [expr {$ts1 == $ts2}]  
+} -result {1}
+
+
+test mixed_julian_iso {Verify correct result with lhs Julian day and rhs ISO string} -body {
+  set jd [db eval {select julianday('2314-11-22T12:33:32');}]
+  set ts1 168000000000 ;# 4 hr 40 min
+  set ts2 [db eval "select timespan_diff($jd, '2314-11-22T07:53:32');"]
+  return [expr {$ts1 == $ts2}]
+} -result {1}
+
+
+test mixed_iso_julian {Verify correct result with lhs ISO string and rhs Julian day} -body {
+  set jd [db eval {select julianday('2314-11-22T07:53:32');}]
+  set ts1 168000000000 ;# 4 hr 40 min
+  set ts2 [db eval "select timespan_diff('2314-11-22T12:33:32', $jd);"]
+  return [expr {$ts1 == $ts2}]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

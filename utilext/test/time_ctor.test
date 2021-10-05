@@ -1,0 +1,176 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the timespan() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test null {Verify NULL return with NULL arg (1-arg version)} -body {
+  return [elem0 [db eval {select timespan(NULL);}]]
+} -result NULL
+
+
+test null3 {Verify NULL return on any NULL arg (3-arg version)} -body {
+  set result [db eval {select timespan(NULL, 3, 2);}]
+  if {$result ne {NULL}} {
+    puts "test_null3 failed arg 1"
+  }
+  set result [db eval {select timespan(3, NULL, 2);}]
+  if {$result ne {NULL}} {puts "test_null3 failed arg 2"}
+  set result [db eval {select timespan(3, 2, NULL);}]
+  if {$result ne {NULL}} {puts "test_null3 failed arg 3"}
+} -output {} -result {}
+
+
+test null4 {Verify NULL return on any NULL arg (4-arg version)} -body {
+  set result [db eval {select timespan(NULL, 3, 2, 4);}]
+  if {$result ne {NULL}} {puts "test_null4 failed arg 1"}
+  set result [db eval {select timespan(3, NULL, 2, 4);}]
+  if {$result ne {NULL}} {puts "test_null4 failed arg 2"}
+  set result [db eval {select timespan(3, 2, NULL, 4);}]
+  if {$result ne {NULL}} {puts "test_null4 failed arg 3"}
+  set result [db eval {select timespan(3, 2, 4, NULL);}]
+  if {$result ne {NULL}} {puts "test_null4 failed arg 4"}  
+} -output {} -result {}
+
+
+test null5 {Verify NULL return on any NULL arg (5-arg version)} -body {
+  set result [db eval {select timespan(NULL, 3, 2, 4, 5);}]
+  if {$result ne {NULL}} {puts "test_null5 failed arg 1"}
+  set result [db eval {select timespan(3, NULL, 2, 4, 5);}]
+  if {$result ne {NULL}} {puts "test_null5 failed arg 2"}
+  set result [db eval {select timespan(3, 2, NULL, 4, 5);}]
+  if {$result ne {NULL}} {puts "test_null5 failed arg 3"}
+  set result [db eval {select timespan(3, 2, 4, NULL, 5);}]
+  if {$result ne {NULL}} {puts "test_null5 failed arg 4"}
+  set result [db eval {select timespan(3, 2, 4, 5, NULL);}]
+  if {$result ne {NULL}} {puts "test_null5 failed arg 5"}   
+} -output {} -result {}
+
+
+test invalid {Verify invalid result raises an error} -body {
+  db eval {select timespan(11000000000, 3, 3);}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args1_blob {Verify a BLOB arg raises an error} -body {
+  set arg 13548866558;
+  db eval {select timespan(@arg);}
+} -returnCodes 1 -result $SqliteMismatch
+
+
+test args1_seconds {Verify correct result with seconds arg} -body {
+  return [elem0 [db eval {select timespan(11045);}]]
+} -result 110450000000
+
+
+test args1_invalid_seconds_low {Verify invalid seconds arg results in error} -body {
+  db eval {select timespan(-922337203689);}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args1_invalid_seconds_high {Verify invalid seconds arg results in error} -body {
+  db eval {select timespan(922337203689);}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args1_days {Verify correct result with days arg} -body {
+  return [elem0 [db eval {select timespan(2.2549537037037037);}]]
+} -result 1948280000000
+
+
+test args1_invalid_days_low {Verify invalid days arg results in error} -body {
+  db eval {select timespan(-10675199.116730066);}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args1_invalid_days_high {Verify invalid days arg results in error} -body {
+  db eval {select timespan(10675199.116730066);}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args1_iso {Verify correct result with ISO string arg in UTF-8 encoding} -body {
+  return [elem0 [db eval {select timespan('1.03:04:05');}]]
+} -result 974450000000
+
+
+test args1_invalid_iso_days {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('10950236521.00:00:00');}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args1_invalid_iso_hours {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('1.85:04:05');}
+} -returnCodes 1 -result $SqliteRange
+
+test args1_invalid_iso_minutes {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('1.03:64:05');}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args1_invalid_iso_seconds {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('1.03:04:75');}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args1_invalid_iso_milliseconds {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('1.03:04:05.66523325');}
+} -returnCodes 1 -result $SqliteRange
+
+
+test args3 {Verify normal result with 3-arg version} -body {
+  return [elem0 [db eval {select timespan(12, 3, 23);}]]
+} -result 434030000000
+
+
+test args4 {Verify normal result with 4-arg version} -body {
+  return [elem0 [db eval {select timespan(12, 3, 23, 47);}]]
+} -result 10490270000000
+
+
+test args5 {Verify normal result with 5-arg version} -body {
+  return [elem0 [db eval {select timespan(12, 3, 23, 47, 22);}]]
+} -result 10490270220000
+
+
+test addto {Verify correct result with 'addto' function} -body {
+  return [elem0 [db eval {select timespan_addto('1670-09-14T13:17:56', timespan(3, 4, 5));}]]
+} -result 1670-09-14T16:22:01
+
+
+test add {Verify correct result with 'add' function} -body {
+  return [elem0 [db eval {select timespan_add(timespan(3, 4, 5), timespan(6, 7, 8));}]]
+} -result 330730000000
+
+
+test sub {Verify correct result with 'sub' function} -body {
+  return [elem0 [db eval {select timespan_sub(timespan(3, 4, 5), timespan(6, 7, 8));}]]
+} -result -109830000000
+
+
+test cmp {Verify correct result with 'cmp' function} -body {
+  return [elem0 [db eval {select timespan_cmp(timespan(3, 4, 5), timespan(6, 7, 8));}]]
+} -result -1
+
+
+test neg {Verify correct result with 'neg' function} -body {
+  return [elem0 [db eval {select timespan_neg(timespan(12, 3, 23));}]]
+} -result -434030000000
+
+
+test str {Verify correct result with 'str' function} -body {
+  return [elem0 [db eval {select timespan_str(timespan(12, 3, 23));}]]
+} -result 12:03:23
+
+
+db close
+tcltest::cleanupTests

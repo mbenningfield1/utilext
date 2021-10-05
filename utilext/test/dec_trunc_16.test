@@ -1,0 +1,33 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the dec_trunc() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test null {Verify a NULL return if the arg is NULL} -body {
+  return [elem0 [db eval {select dec_trunc(NULL);}]]
+} -result NULL
+
+
+test normal {Truncate a decimal} -body {
+  return [elem0 [db eval {select dec_trunc('3.45');}]]
+} -result 3
+
+
+test invalid {Verify a parse error on non-numeric arg} -body {
+  db eval {select dec_trunc('fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

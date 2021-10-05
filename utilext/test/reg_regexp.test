@@ -1,0 +1,86 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the regexp() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test source_null {Verify NULL return for NULL source arg} -body {
+  return [elem0 [db eval {select NULL REGEXP '^.*';}]]
+} -result NULL
+
+
+test pattern_null {Verify NULL return for NULL pattern arg} -body {
+  return [elem0 [db eval {select 'Fahrenheit451' REGEXP NULL;}]]
+} -result NULL
+
+
+test timeout_null {Verify NULL return for NULL timeout arg} -body {
+  return [elem0 [db eval {select regexp('Fahrenheit451', '\d', NULL);}]]
+} -result NULL
+
+
+test positive {Verify pattern match} -body {
+  return [elem0 [db eval {select 'Fahrenheit451' REGEXP '\d+';}]]
+} -result 1
+
+
+test negative {Verify no pattern match} -body {
+  return [elem0 [db eval {select 'Opaline' REGEXP '^\d+';}]]
+} -result 0
+
+
+test time_neg {Verify regex runs with negative timeout} -body {
+  set pattern "^(a+)+\$"
+  return [elem0 [db eval {select regexp(:pattern, 'aaaaaaaaaaaaaaaaaaaaaaaa!', -1);}]]
+} -result 0
+
+
+test time_zero {Verify regex runs with zero timeout} -body {
+  set pattern "^(a+)+\$"
+  return [elem0 [db eval {select regexp(:pattern, 'aaaaaaaaaaaaaaaaaaaaaaaa!', 0);}]]
+} -result 0
+
+
+test time_zero_conv {Verify non-integer timeout is converted to zero} -body {
+  set pattern "^(a+)+\$"
+  return [elem0 [db eval {select regexp(:pattern, 'aaaaaaaaaaaaaaaaaaaaaaaa!', 'george');}]]
+} -result 0
+
+
+test time_pos {Verify regex runs with positive timeout} -body {
+  return [elem0 [db eval {select regexp('\d+', 'Fahrenheit451', 500);}]]
+} -result 1
+
+
+test parse_err {Verify regex parse error} -body {
+  db eval {select 'Desolation' REGEXP '(^\d+';}
+} -returnCodes 1 -result {parsing "(^\d+" - Not enough )'s.}
+
+
+test timeout_err {Verify timeout error} -body {
+  set pattern "^(a+)+\$"
+  db eval {select regexp(:pattern, 'aaaaaaaaaaaaaaaaaaaaaaaa!', 500);}
+} -returnCodes 1 -result $SqliteAbort
+
+
+test unicode {Verify matching with unicode chars} -body {
+  setup_unicode8 pdb
+  set a [pdb eval {select source REGEXP pattern from test_regexp;}]
+  set b [list 0 0 0 1 0 1 0 0 1 0 0 0 0]
+  pdb close
+  return [listEquals $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

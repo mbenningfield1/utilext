@@ -1,0 +1,53 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the dec_sub() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test null_lhs {Verify NULL return with NULL lhs arg} -body {
+  return [elem0 [db eval {select dec_sub(NULL, '2.3');}]]
+} -result NULL
+
+
+test null_rhs {Verify NULL return with NULL rhs arg} -body {
+  return [elem0 [db eval {select dec_sub('3.4', NULL);}]]
+} -result NULL
+
+
+test normal {Subtract some numbers} -body {
+  return [elem0 [db eval {select dec_sub('4.35', '2.2');}]]
+} -result 2.15
+
+
+test invalid_lhs {Verify parse error with non-numeric lhs arg} -body {
+  db eval {select dec_sub('fred', '3.2');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test invalid_rhs {Verify parse error with non-numeric rhs arg} -body {
+  db eval {select dec_sub('2.3', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test range_low {Verify range error on too small result} -body {
+  db eval {select dec_sub(:DEC_MIN, '2.3');}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test range_high {Verify range error on too large result} -body {
+  db eval {select dec_sub(:DEC_MAX, '-2.3');}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+db close
+tcltest::cleanupTests

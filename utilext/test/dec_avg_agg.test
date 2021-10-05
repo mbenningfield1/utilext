@@ -1,0 +1,116 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the aggregate dec_avg() window function
+#
+#===============================================================================
+ 
+source errors.tcl
+setup db
+
+
+test normal {Take the average of a column} -body {
+  set sqlOne {
+    create table t1(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t1 values    (NULL, '16152.35846'), (NULL, '1549.38831'),
+      (NULL, '13119.7118'),  (NULL, '32762.48406'), (NULL, '44967.44333'),
+      (NULL, '-499.48620'),  (NULL, '19227.29505'), (NULL, '41552.33412'),
+      (NULL, '6531.33932'),  (NULL, '38589.33048'), (NULL, '36763.21735'),
+      (NULL, '2480.45466'),  (NULL, '48541.20761'), (NULL, '45710.46241'),
+      (NULL, '37308.11353'), (NULL, '28105.217'),   (NULL, '17061.21120'),
+      (NULL, '42633.33824'), (NULL, '1968.9851'),   (NULL, '32223.16354'),
+      (NULL, '9152.12894'),  (NULL, '18779.2767'),  (NULL, '15223.14492'),
+      (NULL, '1746.18545'),  (NULL, '11546.31080'), (NULL, '27050.26182'),
+      (NULL, '32616.33014'), (NULL, '6788.44416'),  (NULL, '33366.6083'),
+      (NULL, '40290.42358'), (NULL, '11408.36520'), (NULL, '-11099.33615'),
+      (NULL, '16229.282'),   (NULL, '31559.48107'), (NULL, '36871.7729'),
+      (NULL, '31445.46680'), (NULL, '1710.22236'),  (NULL, '23897.23869'),
+      (NULL, '2957.49712'),  (NULL, '30244.34049'), (NULL, '19015.27166'),
+      (NULL, '34696.6229'),  (NULL, '34302.1923'),  (NULL, '17600.34047'),
+      (NULL, '14333.48217'), (NULL, '458.45885'),   (NULL, '19561.39864'),
+      (NULL, '4947.22632'),  (NULL, '1795.35163'),  (NULL, '36537.14941');
+  }
+  db eval $sqlOne
+  return [elem0 [db eval {select dec_avg(value) from t1;}]]
+} -result 21235.5701802
+
+
+test nulls {Verify NULL column values are ignored if any are non-NULL} -body {
+  set sqlTwo {
+    create table t2(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t2 values    (NULL, '24473.10381'), (NULL, '9118.32918'),
+      (NULL, '41459.33653'), (NULL, '25838.6241'),  (NULL, '-23344.34241'),
+      (NULL, '1824.4871'),   (NULL, NULL),          (NULL, '32681.47512'),
+      (NULL, '33775.38653'), (NULL, '7271.35560'),  (NULL, '27119.11845'),
+      (NULL, '17289.1265'),  (NULL, '22075.17794'), (NULL, '13176.15303'),
+      (NULL, '1118.15377'),  (NULL, NULL),          (NULL, '6594.3933'),
+      (NULL, '27450.7220'),  (NULL, '24929.31414'), (NULL, '6759.16804'),
+      (NULL, '20047.13321'), (NULL, '16521.20705'), (NULL, '20808.46924'),
+      (NULL, NULL),          (NULL, '32260.35420');
+  }
+  db eval $sqlTwo
+  return [elem0 [db eval {select dec_avg(value) from t2;}]]
+} -result 17693.011201363636363636363636
+
+
+test all_null {Verify that a column with only NULL values returns 0.0} -body {
+  set sqlThree {
+    create table t3(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t3 values (NULL, NULL), (NULL, NULL), (NULL, NULL);
+  }
+  db eval $sqlThree
+  return [elem0 [db eval {select dec_avg(value) from t3;}]]
+} -result 0.0
+
+
+test invalid {Verify a parse error on non-numeric column values} -body {
+  set sqlFour {
+    create table t4(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t4 values (NULL, '345.55'), (NULL, '3778.21111'), (NULL, 'fred');
+  }
+  db eval $sqlFour
+  db eval {select dec_avg(value) from t4;}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test no_rows {Verify correct result with zero row count} -body {
+  db eval {drop table if exists t1;
+    create table t1 (a TEXT COLLATE DECIMAL);
+    insert into t1 values ('12.3'), ('23.4'), ('34.5'), ('45.6'), ('56.7');
+  }
+  return [elem0 [db eval {select dec_avg(a) from t1 where a > '100.0';}]]
+} -result 0.0
+
+
+if {[db version] >= $MinVersionWindow} {
+  test window {Verify that the function works as a window function} -body {
+    set sqlFive {
+      create table t5(x, y);
+      insert into t5 values ('a', '42.60'), ('b', '56.84'),
+        ('c', '37.24'),     ('d', '81.48'), ('e', '13.64');
+    }
+    db eval $sqlFive
+    set results [db eval {select x, dec_avg(y) over (
+                            order by x rows between 1 preceding and 1 following
+                            ) as avg_y 
+                          from t5 order by x;}]
+    set winRows {49.72 45.56 58.52 44.12 47.56}
+    set i 0
+    foreach {k j} $results {
+      if {$j ne [lindex $winRows $i]} {puts "test_window failed with i = $i"}
+      incr i;
+    }
+  } -output {} -result {}
+} else {
+  test window {Empty test} -constraints noWindowFuncs -body {
+  } -result {}
+}
+
+
+db close
+tcltest::cleanupTests

@@ -1,0 +1,142 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the aggregate dec_sum() window function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test normal {Add up some column values} -body {
+  set sqlOne {
+    create table t1(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t1 values     (NULL, '39389.42152'),  (NULL, '45544.8599'),
+      (NULL, '33344.24168'),  (NULL, '-41559.33163'), (NULL, '27495.14920'),
+      (NULL, '7489.197'),     (NULL, '17804.13963'),  (NULL, '37479.11115'),
+      (NULL, '11727.44155'),  (NULL, '1555.21903'),   (NULL, '27092.12938'),
+      (NULL, '22289.17807'),  (NULL, '47184.36719'),  (NULL, '43268.492'),
+      (NULL, '4400.44563'),   (NULL, '26155.47132'),  (NULL, '4680.18614'),
+      (NULL, '39356.7100'),   (NULL, '44859.25566'),  (NULL, '24889.18744'),
+      (NULL, '22542.18179'),  (NULL, '29203.35537'),  (NULL, '45846.22990'),
+      (NULL, '47964.40035'),  (NULL, '47019.14015'),  (NULL, '18821.42929'),
+      (NULL, '30737.47089'),  (NULL, '9454.26451'),   (NULL, '19864.27737'),
+      (NULL, '-11415.46625'), (NULL, '30900.41068'),  (NULL, '28764.32931'),
+      (NULL, '38764.10357'),  (NULL, '45516.49190'),  (NULL, '24607.30379'),
+      (NULL, '16255.36160'),  (NULL, '19267.32811'),  (NULL, '49360.8914'),
+      (NULL, '33735.36751'),  (NULL, '21961.24194'),  (NULL, '38754.3233'),
+      (NULL, '3473.40384'),   (NULL, '25742.33226'),  (NULL, '16395.7591'),
+      (NULL, '9160.12905'),   (NULL, '37236.17123'),  (NULL, '14152.28264'),
+      (NULL, '37844.31473'),  (NULL, '39414.46271'),  (NULL, '46772.35489');
+  }
+  db eval $sqlOne
+  return [elem0 [db eval {select dec_sum(value) from t1;}]]
+} -result 1302560.51879
+
+
+test nulls {Verify NULL values are ignored with non-NULL values} -body {
+  set sqlTwo {
+    create table t2(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t2 values    (NULL, '19864.27737'), (NULL, '-11415.46625'),
+      (NULL, '30900.41068'), (NULL, '28764.32931'), (NULL, NULL),
+      (NULL, '45516.49190'), (NULL, '24607.30379'), (NULL, '16255.36160'),
+      (NULL, '19267.32811'), (NULL, '49360.8914'),  (NULL, '33735.36751'),
+      (NULL, '21961.24194'), (NULL, '38754.3233'),  (NULL, '3473.40384'),
+      (NULL, '25742.33226'), (NULL, '16395.7591'),  (NULL, NULL),
+      (NULL, '37236.17123'), (NULL, '14152.28264'), (NULL, '37844.31473'),
+      (NULL, '39414.46271'), (NULL, '46772.35489'), (NULL, '27473.48774'),
+      (NULL, '15429.16640'), (NULL, '47760.32660'), (NULL, '23662.47925'),
+      (NULL, '47728.541'),   (NULL, NULL),          (NULL, '5777.37220'),
+      (NULL, '7871.27667');
+  }
+  db eval $sqlTwo
+  return [elem0 [db eval {select dec_sum(value) from t2;}]]
+} -result 714305.59192
+
+
+test all_nulls {Verify zero return with all values NULL} -body {
+  set sqlThree {
+    create table t3(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t3 values (NULL, NULL), (NULL, NULL), (NULL, NULL);
+  }
+  db eval $sqlThree
+  return [elem0 [db eval {select dec_sum(value) from t3;}]]
+} -result 0.0
+
+
+test range_low {Verify range error with too small result} -body {
+  set sqlFour {
+    create table t4(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t4 values (NULL, '-4314349140031314343143.49132'), 
+        (NULL, '-2200922009914003122009.41003'), 
+        (NULL, '-79228162514264337593543950335');
+  }
+  db eval $sqlFour
+  db eval {select dec_sum(value) from t4;}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test range_high {Verify range error with too large result} -body {
+  set sqlFive {
+    create table t5(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t5 values (NULL, '4314349140031314343143.49132'),
+      (NULL, '2200922009914003122009.41003'),
+      (NULL, '79228162514264337593543950335');
+  }
+  db eval $sqlFive
+  db eval {select dec_sum(value) from t5;}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test invalid {Verify parse error on non-numeric values} -body {
+  set sqlSix {
+    create table t6(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t6 values (NULL, '345.55'), (NULL, '3778.21111'), (NULL, 'fred');
+  }
+  db eval $sqlSix
+  db eval {select dec_sum(value) from t6;}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test no_rows {Verify correct result with zero row count} -body {
+  db eval {drop table if exists t1;
+    create table t1 (a TEXT COLLATE DECIMAL);
+    insert into t1 values ('12.3'), ('23.4'), ('34.5'), ('45.6'), ('56.7');
+  }
+  return [elem0 [db eval {select dec_sum(a) from t1 where a > '100.0';}]]
+} -result 0.0
+
+
+if {[db version] >= $MinVersionWindow} {
+  test window {Verify proper window function operation} -body {
+    set sqlSeven {
+    create table t7(x, y);
+    insert into t7 values ('a', '4.5'), ('b', '5.3'),
+           ('c', '3.7'),  ('d', '8.6'), ('e', '1.4');
+    }
+    db eval $sqlSeven
+    set results [db eval {select x, dec_sum(y) over (
+                            order by x rows between 1 preceding and 1 following
+                            ) as sumY 
+                          from t7 order by x;}]
+    set winRows { 9.8 13.5 17.6 13.7 10.0 }
+    set i 0
+    foreach {k j} $results {
+      if {$j ne [lindex $winRows $i]} {puts "test_window failed with i = $i"}
+      incr i;
+    }
+  } -output {} -result {}
+} else {
+  test window {Empty Test} -constraints noWindowFuncs -body {
+  } -result {}
+}
+
+
+db close
+tcltest::cleanupTests

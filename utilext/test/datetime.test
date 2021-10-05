@@ -1,0 +1,46 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the internal date/time conversion functions
+#
+# Rather than instrumenting the binary with a conditional set of functions that
+# are only used for testing, we use the 'timespan_addto()' function to round-
+# trip Unix timestamps and Julian Day values. That function converts to a .NET
+# DateTime to perform the TimeSpan addition, then converts the result back to
+# the original numeric format.
+#
+#===============================================================================
+
+source errors.tcl
+sqlite3 db datetimes.db
+db enable_load_extension true
+db eval {select load_extension('utilext.dll');}
+
+
+test unix_time {Verify round-trip from Unix to DateTime to Unix} -body {
+  set times [db eval {select unix from unixdates;}]
+  for {set i 0} {$i < [llength $times]} {incr i} {
+    set t [lindex $times $i]
+    set result [db eval "select timespan_addto($t, timespan(0,0,0));"]
+    if {$t != $result} {puts "unix_time failed with i = $i"}
+  }
+  
+} -output {}
+
+test julian_day {Verify round-trip from Julian to DateTime to Julian} -body {
+  set days [db eval {select julian from juliandates;}]
+  for {set i 0} {$i < [llength $days]} {incr i} {
+    set j [lindex $days $i]
+    set result [db eval "select timespan_addto($j, timespan(0,0,0));"]
+    if {$j != $result} {puts "julian_day failed with i = $i"}
+  }
+} -output {}
+
+
+db close
+tcltest::cleanupTests

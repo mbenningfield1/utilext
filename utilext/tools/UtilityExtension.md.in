@@ -1,0 +1,296 @@
+# Utility Extensions (utilext.dll)
+A loadable extension for the SQLite database engine that leverages the .NET
+Framework for native or managed applications that run on Windows. It provides
+functions that support Unicode string handling, Decimal math functions, and
+TimeSpan functions for use with date/time values.
+
+## <span id="toc">Contents</span>
+**[Version Info](#version)**  
+**[Technicalities](#tech)**  
+**[The Decimal Type](#dec)**  
+**[Decimal Functions](#declist)**  
+**[String Handling](#str)**  
+**[String Functions](#strlist)**  
+**[Regular Expressions](#regex)**  
+**[Regular Expression Functions](#regexlist)**  
+**[The TimeSpan Type](#time)**  
+**[TimeSpan Functions](#timelist)**  
+**[Testing](#testing)**  
+**[Build Notes](#bld)**  
+
+
+
+## <span id="version">Version Info</span>
+The file versioning for the utilext.dll library follows the normal Windows file
+versioning scheme: *Major.Minor.Build.Revision*
+
+The first three numbers are kept in sync with the latest version of SQLite that
+the library was tested against. In the event of bug fixes for the utilext.dll
+project, the *Revision* number will reflect incremental changes until the next
+release of the SQLite library, at which point the *Revision* number is reset to
+zero.
+
+SQLite added support for window functions in version 3.25.0, and several functions
+in the utilext extension are aggregate window functions. If the version of SQLite
+in use is less than 3.25.0, those functions are registered as normal aggregate
+functions rather than as window functions.
+
+VERSION
+
+
+
+## <span id="tech">Technicalities</span>
+The utilext library was created to support line-of-business desktop applications
+and server-side tools running on Windows. As written, the project targets .NET
+Framework version 4.5. It should be possible to target .NET Core 3.1 and build
+the project for cross-platform deployment, but that is not a current priority
+and has not been tested. Note that the codebase is in the public domain.
+
+As a mixed-mode assembly, the utilext.dll library should be built to target the
+same platform (32-bit or 64-bit) as the sqlite3.dll library. It cannot be built
+using the **AnyCPU** build option.
+
+The standard entry point for loading this extension is `sqlite3_utilext_init`,
+which is what the SQLite library expects to find for an extension named
+"utilext.dll", so the entry point does not have to be specified when loading the
+extension normally.
+
+This extension can be loaded persistently (from SQLite's point of view) by
+specifying the `utilext_persist_init` entry point when loading the extension.
+This will ensure that the extension functions are available for every new
+connection.
+
+The extension library is loaded into a managed AppDomain. If the host process
+(your application) is a managed application, this is usually the same AppDomain
+as the host. If the host application is a native application, then a default
+AppDomain is used. In any event, the extension library remains resident within
+that AppDomain until the host process terminates.
+
+The SQLite library has no notion of AppDomains, so the extension library must be
+loaded with each connection, or loaded persistently using the provided entry
+point.
+
+
+## <span id="dec">The Decimal Type</span> ##
+The decimal extension functions are wrappers for the methods on the .NET
+Framework `Decimal` data type, so you should bear in mind the particulars and
+limitations of that data type.
+
+The decimal functions provide, in effect, a DECIMAL data type for SQLite. These
+functions are much more intolerant of type mis-matches than is usual for SQLite.
+Calling these functions with data that is not NULL and does not resolve to a
+valid decimal number will usually result in an error. The description of each
+function describes the errors that can result. Data is expected to be stored as
+TEXT and contain only valid numeric strings. Strings are parsed using the
+`System.Globalization.NumberStyles.Any` specifier, so the following are examples
+of valid decimal strings:
+
+<table>
+  <tr>
+    <td>'1.0'</td><td>'-1.0'</td><td>'001.0'</td><td>'-001.0'</td>
+    <td>'(1.0)'</td><td>'(01.0)'</td><td>'1.0e3'</td>
+  </tr>
+    <td>'-1.0e3'</td><td>'1.0E3'</td><td>'001.0e3'</td><td>'-001.0e3'</td>
+    <td>'1.0e+3'</td><td>'-1.0e+3'</td><td>'1.0e-3'</td>
+  <tr>
+    <td>'-1.0e-3'</td><td>'$1.0'</td><td>'-$1.0'</td><td>'($1.0)'</td>
+    <td>'$(1.0)'</td><td>'1'</td><td>'-1'</td>
+  </tr>
+  <tr>
+    <td>'01'</td><td>'-01'</td><td>'$01.0'</td><td>'-$01.0'</td>
+    <td>'($01.0)'</td><td>'$(01.0)'</td><td>'.5'</td>
+  </tr>
+</table>
+
+Valid currency symbols depend on the current .NET Culture. Although a currency
+symbol is parsed as valid, storing currency information on an amount column is
+almost invariably a bad idea.
+
+The `dec_min()` and `dec_max()` functions are multi-argument functions, not
+aggregate functions. The built-in SQLite `min()` and `max()` aggregate functions
+will work exactly right if the column that holds the decimal values is defined
+with the 'decimal' collation sequence.
+
+
+## <span id="declist">Decimal Functions</span>
+
+DEC_LIST
+
+DEC_ENTRIES
+
+
+
+## <span id="str">String Handling</span>
+As written, the utilext extension uses the `CultureInfo.CurrentCulture` that is
+defined on the host machine for Unicode string processing (comparisons and case
+conversions). This is usually correct, since that culture information describes
+data formatting and comparison options for the localized version of Windows that
+is installed on the host machine. The format of data in a SQLite database on the
+host machine should presumably match that culture information.
+
+Occasionally, the host machine is not a localized version of Windows that
+matches the application data. In that event, you may have to refactor the code
+in the `Common` class to match up with the target machine. For example, you may
+have to change the assignment to use the `CultureInfo.CurrentUICulture` in order
+to match the formatting of an installed language pack, or create a custom
+culture that matches the application data.
+
+Alternatively, you can call the `set_culture()` SQL function to assign the
+desired culture when your application starts. Whether or not this produces the
+desired results depends on how wide the mismatch is between the format of the
+data in the database and the OS configuration on the host machine. Some
+trial-and-error may be required.
+
+
+## <span id="strlist">String Functions</span>
+
+STR_LIST
+
+STR_ENTRIES
+
+
+## <span id="regex">Regular Expressions</span>
+A few regular expression functions are included for the convenience they provide
+for flexible string manipulation. These functions don't even come close to
+implementing a complete regular expression framework, nor are they intended to.
+They are provided (again, for convenience) for those situations where more
+flexibility is needed over simple string operations.
+
+For example, SQLite already has the `replace()` SQL function for simple
+string substitutions. This library provides the `regsub()` SQL function for
+string substitutions based on simple regular expression patterns. Note the use
+of the word 'simple'. A complex regular expression that uses extensive
+backtracking can burn a lot of time when used with a large body of text, or
+even a not-so-large body. Prudence is required when using the regular expression
+functions in this library.
+
+Note that the `regexp()` SQL function implementation enables the SQLite `REGEXP`
+operator. The syntax for that operator does not make any provision for
+specifying a timeout interval. The utilext library provides an overload of that
+function that lets you specify a timeout interval, but that function overload
+must be called explicitly; it does not affect the `REGEXP` operator.
+
+
+## <span id="regexlist">Regular Expression Functions</span>
+
+REG_LIST
+
+REG_ENTRIES
+
+
+
+## <span id="time">The TimeSpan Type</span>
+Leveraging the `TimeSpan` .NET Framework type, these functions make it easier to
+manipulate date/time values with SQL in some situations. They don't add any
+functionality that isn't already available with SQLite; in fact, SQLite can do
+better in some cases, since it can add weeks or months to a date/time value
+easily and reliably. A TimeSpan value doesn't represent weeks or months, except
+as a set number of days. However, instead of writing:
+
+    SELECT strftime('%s', datetime(colDate, 'unixepoch', '+3 days', '+13 hours', '+26 minutes')) FROM t1;
+
+you can write:
+
+    SELECT timespan_addto(colDate, timespan(3, 13, 26, 0)) FROM t1;
+
+TimeSpan values are presumed to be stored as 64-bit signed integer values,
+representing the tick count of a .NET TimeSpan value.
+
+Date/time values represented as Unix timestamps or Julian days are, by
+definition, expressed in terms of Universal Coordinated Time (UTC, or Zulu time).
+Date/time values that are represented as ISO-8601 strings are assumed to be in
+UTC, or are converted to UTC if any timezone offset is present in the string.
+Date/time values that are returned as ISO-8601 strings are always in UTC.
+These functions utilize methods on the .NET Framework `DateTime` and `TimeSpan`
+types. You should bear in mind the particulars and limitations of these types.
+
+One thing in particular to note is that since SQLite handles all date/times
+internally as Julian day values, it recognizes year 0 as valid (0000-01-01),
+which is an artifact of the Julian day numbering system. The minimum valid year
+in .NET is year 1 (0001-01-01). SQLite specifies that date/time operations which
+involve out-of-range values are undefined, but it usually responds gracefully by
+returning NULL. The utilext library will raise an error on date/time values that
+are out-of-range for the `DateTime` .NET Framework type.
+
+## <span id="timelist">TimeSpan Functions</span>
+
+TIME_LIST
+
+TIME_ENTRIES
+
+
+## <span id="testing">Testing</span>
+The `test` folder in the codebase contains the Tcl test scripts and databases
+used for testing the utilext library. The test suite uses a custom build of the
+sqlite library that enables the Tcl interface to sqlite. It also extends that
+interface by adding the `limit` command, which the standard Tcl interface
+doesn't implement for some reason.
+
+
+The `\tcl_sqlite\x86` and `\tcl_sqlite\x64` folders contain binary distributions
+of the Tcl-enabled sqlite library, along with package index files to facilitate
+package loading in the Tcl interpreter. See the readme file in `\tcl_sqlite` for
+more information.
+
+The `tclsqlite.c` source file contains the source code for the modified Tcl
+interface to sqlite, if you have a TEA build environment and want to build the
+Tcl-enabled sqlite library yourself.
+
+The readme file in the `test` directory contains further information about how
+to go about setting up the test environment and running the tests.
+
+
+## <span id="bld">Build Notes</span>
+The source code for the utilext.dll assembly is contained in a Visual Studio 2015
+build project. It should be readily convertible to later editions of Visual
+Studio; however, for later editions, you will need to make sure that you have
+installed the proper toolset for building C++/CLI mixed-mode assemblies.
+
+There are several compiler options that can be defined to change the output of
+the build, to eliminate features that you don't need to use, thereby saving
+space in the final library. They are:
+
+<table style="font-size:smaller">
+  <tr>
+    <td>UTILEXT_OMIT_DECIMAL</td>
+    <td>Omits the DECIMAL functions and collation sequence</td>
+  </tr>
+  <tr>
+    <td>UTILEXT_OMIT_REGEX</td>
+    <td>Omits the regular expression functions</td>
+  </tr>
+  <tr>
+    <td>UTILEXT_OMIT_LIKE</td>
+    <td>Omits the Unicode like function override</td>
+  </tr>
+  <tr>
+    <td>UTILEXT_OMIT_STRING</td>
+    <td>Omits the Unicode string functions and collation sequences. This option
+        implies UTILEXT_OMIT_LIKE</td>
+  </tr>
+  <tr>
+    <td>UTILEXT_OMIT_TIME</td>
+    <td>Omits the TimeSpan functions</td>
+  </tr>
+</table>
+
+By default, all functions (with the exceptions of `set_case_sensitive_like()`
+and `set_culture()`) are decorated with the `SQLITE_DETERMINISTIC` function flag,
+since they all produce the same output with the same arguments.
+
+The `UTILEXT_MAKE_DIRECT` symbol can be defined to apply the `SQLITE_DIRECTONLY`
+flag to all function implementations if the security considerations for your
+application require it. Again, the exceptions to this are the
+`set_case_sensitive_like()` and the `set_culture()` functions, which are
+decorated with `SQLITE_DIRECTONLY` by default, since they have side effects that
+persist beyond the scope of the function calls. None of the other functions in
+the utilext library have side effects, nor do they reveal internal state, so the
+`SQLITE_DIRECTONLY` flag is not *strictly* necessary, but it can be changed to
+suit application requirements.
+
+None of the functions are decorated with the `SQLITE_INNOCUOUS` function flag,
+and if you change this, you do so at your own risk.
+
+In the `tools` folder, the `makeDoc.tcl` script is used to generate the
+`UtilityExtension.md` markdown file for the project. See the comments in that
+file and others for more information.

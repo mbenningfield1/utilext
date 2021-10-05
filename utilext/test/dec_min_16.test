@@ -1,0 +1,68 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the multi-arg dec_min() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test all_null_2 {(2-arg special case) Verify NULL return on NULL args} -body {
+  return [elem0 [db eval {select dec_min(NULL, NULL);}]]
+} -result NULL
+
+
+test all_null {Verify NULL return on NULL args} -body {
+  return [elem0 [db eval {select dec_min(NULL, NULL, NULL, NULL);}]]
+} -result NULL
+
+
+test any_null_2 {(2-arg special case) Verify NULL args are ignored with non-NULLS} -body {
+  return [elem0 [db eval {select dec_min('4.567', NULL);}]]
+} -result 4.567
+
+
+test any_null {Verify NULL args are ignored with non-NULLS} -body {
+  return [elem0 [db eval {select dec_min('3.25', '6.45', NULL, '9.12');}]]
+} -result 3.25
+
+
+test args_zero {Verify NULL return with zero arguments} -body {
+  return [elem0 [db eval {select dec_min();}]]
+} -result NULL
+
+
+test args_one {Verify result with only one argument} -body {
+  return [elem0 [db eval {select dec_min('4.56');}]]
+} -result 4.56
+
+
+test normal_2 {(2-arg special case) Take the min of 2 numbers} -body {
+  return [elem0 [db eval {select dec_min('4.56', '9.32');}]]
+} -result 4.56
+
+
+test normal {Take the min of some numbers} -body {
+  return [elem0 [db eval {select dec_min('3.55', '6.55', NULL, '4.51');}]]
+} -result 3.55
+
+
+test invalid_2 {(2-arg special case) Verify error on non-numeric args} -body {
+  db eval {select dec_min('3.33', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test invalid {Verify error on non-numeric args} -body {
+  db eval {select dec_min('1.21', '7.23', 'fred', '6.78');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

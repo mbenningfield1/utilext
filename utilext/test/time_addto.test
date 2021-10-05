@@ -1,0 +1,158 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the timespan_addto() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test null_date {Verify NULL return with NULL date arg} -body {
+  return [elem0 [db eval {select timespan_addto(NULL, 2355234234);}]]
+} -result NULL
+
+
+test null_time {Verify NULL return with NULL time arg} -body {
+  return [elem0 [db eval {select timespan_addto(datetime('now'), NULL);}]]
+} -result NULL
+
+
+test blob_date {Verify error with BLOB date arg} -body {
+  set date 235234235235
+  db eval {select timespan_addto(@date, 23234234234);}
+} -returnCodes 1 -result $SqliteMismatch
+
+
+test julian {Verify correct result with Julian Day date/time} -body {
+  set jd1 [db eval {select julianday('2012-03-22T10:14:32');}]
+  set jd2 [db eval {select julianday('2012-03-22T10:14:32', '+1 day');}]
+  set jdr [db eval "select timespan_addto($jd1, 864000000000);"]
+  return [expr {$jdr == $jd2}]
+} -result {1}
+
+
+test julian_max_add {Verify add to max results in error} -body {
+  set jd [db eval {select julianday('9999-12-31T23:59:59.999');}]
+  db eval "select timespan_addto($jd, 10000);" ;# add 1 millisecond
+} -returnCodes 1 -result $SqliteFormat
+
+
+test julian_max_sub {Verify sub from max is correct} -body {
+  set jd1 [db eval {select julianday('9999-12-31T23:59:59.999');}]
+  set jd2 [db eval {select julianday('9999-12-31T23:59:59.999', '-2 days', '-2 hours');}]
+  set jdr [db eval "select timespan_addto($jd1, -1800000000000);"]
+  return [expr {$jdr == $jd2}]
+} -result {1}
+
+
+test julian_min_add {Verify add to min is correct} -body {
+  set jd1 [db eval {select julianday('0001-01-01T00:00:00');}]
+  set jd2 [db eval {select julianday('0001-01-01T00:00:00', '+2 days', '+2 hours');}]
+  set jdr [db eval "select timespan_addto($jd1, 1800000000000);"]
+  return [expr {$jdr == $jd2}]
+} -result {1}
+
+
+test julian_min_sub {Verify sub from min results in error} -body {
+  set jd [db eval {select julianday('0001-01-01T00:00:00');}]
+  db eval "select timespan_addto($jd, -10000);" ;# minus 1 millisecond
+} -returnCodes 1 -result $SqliteFormat
+
+
+test julian_invalid {Verify invalid Julian Day arg results in error} -body {
+  db eval {select timespan_addto(1234587468414.3225565, 10000);}
+} -returnCodes 1 -result $SqliteError
+
+
+test unix {Verify correct result with Unix time} -body {
+  set ut1 [db eval {select strftime('%s', '2012-03-22T10:14:32');}]
+  set ut2 [db eval {select strftime('%s', '2012-03-22T10:14:32', '+1 day');}]
+  set utr [db eval "select timespan_addto($ut1, 864000000000);"]
+  return [expr {$ut2 == $utr}]
+} -result {1}
+
+
+test unix_max_add {Verify add to max results in error} -body {
+  set ut1 [db eval {select strftime('%s', '9999-12-31T23:59:59');}]
+  db eval "select timespan_addto($ut1, 10000000);" ;# add 1 second
+} -returnCodes 1 -result $SqliteFormat
+
+
+test unix_max_sub {Verify sub from max is correct} -body {
+  set ut1 [db eval {select strftime('%s', '9999-12-31T23:59:59');}]
+  set ut2 [db eval {select strftime('%s', '9999-12-31T23:59:59', '-1 second');}]
+  set utr [db eval "select timespan_addto($ut1, -10000000);"]
+  return [expr {$ut2 == $utr}]
+} -result {1}
+
+
+test unix_min_add {Verify add to min is correct} -body {
+  set ut1 [db eval {select strftime('%s', '0001-01-01T00:00:00');}]
+  set ut2 [db eval {select strftime('%s', '0001-01-01T00:00:00', '+1 second');}]
+  set utr [db eval "select timespan_addto($ut1, 10000000);"]
+  return [expr {$ut2 == $utr}]
+} -result {1}
+
+
+test unix_min_sub {Verify sub from min results in error} -body {
+  set ut1 [db eval {select strftime('%s', '0001-01-01T00:00:00');}]
+  db eval "select timespan_addto($ut1, -10000000);" ;# minus 1 second
+} -returnCodes 1 -result $SqliteFormat
+
+
+test unix_invalid {Verify invalid Unix time arg results in error} -body {
+  set ut1 [db eval {select strftime('%s', '0000-01-01T00:00:00');}] ;# .NET DateTime is year 1
+  db eval "select timespan_addto($ut1, 10000000);"
+} -returnCodes 1 -result $SqliteError
+
+
+test iso {Verify correct result with ISO date/time} -body {
+  set dt1 "2314-04-23T16:23:46.332"
+  set dt2 "2314-04-23T17:23:46.332"
+  set dtr [db eval {select timespan_addto($dt1, 36000000000);}]
+  return [expr {$dt2 eq $dtr}]
+} -result {1}
+
+
+test iso_max_add {Verify add to max results in error} -body {
+  set dt1 {9999-12-31T23:59:59.999}
+  db eval {select timespan_addto($dt1, 10000);} ;# add 1 millisecond
+} -returnCodes 1 -result $SqliteFormat
+
+
+test iso_max_sub {Verify sub from max is correct} -body {
+  set dt1 {9999-12-31T23:59:59.999}
+  set dt2 {9999-12-31T23:59:59.998}
+  set dtr [db eval {select timespan_addto($dt1, -10000);}]
+  return [expr {$dt2 eq $dtr}]
+} -result {1}
+
+
+test iso_min_add {Verify add to min is correct} -body {
+  set dt1 {0001-01-01T00:00:00}
+  set dt2 {0001-01-01T01:00:00}
+  set dtr [db eval {select timespan_addto($dt1, 36000000000);}] ;# add 1 hour
+  return [expr {$dt2 eq $dtr}]
+} -result {1}
+
+
+test iso_min_sub {Verify sub from min results in error} -body {
+  set dt1 {0001-01-01T00:00:00}
+  db eval {select timespan_addto($dt1, -10000);} ;# minus 1 millisecond
+} -returnCodes 1 -result $SqliteFormat
+
+
+test iso_invalid {Verify invalid ISO arg results in error} -body {
+  db eval {select timespan_addto('fred', 10000);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

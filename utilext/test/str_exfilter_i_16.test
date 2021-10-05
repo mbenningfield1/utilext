@@ -1,0 +1,72 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the exfilter_i() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test source_null {Verify NULL return on NULL source arg} -body {
+  return [elem0 [db eval {select exfilter_i(NULL, 'aeiou');}]]
+} -result NULL
+
+
+test match_null {Verify NULL return on NULL match arg} -body {
+  return [elem0 [db eval {select exfilter_i('abcde', NULL);}]]
+} -result NULL
+
+
+test source_empty {Verify empty return on source empty string arg} -body {
+  return [elem0 [db eval {select exfilter_i('', 'aeiou');}]]
+} -result {}
+
+
+test match_empty {Verify source return on empty match arg} -body {
+  return [elem0 [db eval {select exfilter_i('abcde', '');}]]
+} -result abcde
+
+
+test normal {Verify normal matching} -body {
+  return [elem0 [db eval {select exfilter_i('albuquerque', 'aeiou');}]]
+} -result lbqrq
+
+
+test match_case {Verify case-insensitive matching} -body {
+  return [elem0 [db eval {select exfilter_i('Albuquerque', 'aeiou');}]]
+} -result lbqrq
+
+
+test match_int {Verify conversion with integer match arg} -body {
+  return [elem0 [db eval {select exfilter_i('Angle is 45 degrees', 4);}]]
+} -result {Angle is 5 degrees}
+
+
+test match_real {Verify conversion with real match arg} -body {
+  return [elem0 [db eval {select exfilter_i('Temp is 98.6 degrees', 8.60);}]]
+} -result {Temp is 9 degrees}
+
+
+test match_real_cast {Verify cast of real match arg to exponential has expected results} -body {
+  return [elem0 [db eval {select exfilter_i('Temp is 98.6 degrees', 0.000086);}]]
+} -result {Tmp is 9 dgrs} ;# SQLite expresses 0.000086 as '8.6e-05'
+
+
+test unicode {Verify case-insensitive unicode character matching} -body {
+  setup_unicode16 pdb
+  set a [pdb eval {select exfilter_i(source, match) from test_exfilter_i;}]
+  set b [pdb eval {select result from test_exfilter_i;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

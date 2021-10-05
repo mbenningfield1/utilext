@@ -1,0 +1,66 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the padright() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test source_null {Verify NULL return for NULL source arg} -body {
+  return [elem0 [db eval {select padright(NULL, 3);}]]
+} -result NULL
+
+
+test len_null {Verify source return for NULL length arg} -body {
+  return [elem0 [db eval {select padright('Saphire', NULL);}]]
+} -result Saphire
+
+
+test source_long {Verify source return with source length longer than length arg} -body {
+  return [elem0 [db eval {select padright('Hello World', 7);}]]
+} -result {Hello World}
+
+
+test normal {Verify correct padding} -body {
+  return [elem0 [db eval {select padright('Cobalt', 12);}]]
+} -result {Cobalt      }
+
+
+test len_zero {Verify source return on zero length arg} -body {
+  return [elem0 [db eval {select padright('Amethyst', 0);}]]
+} -result Amethyst
+
+
+test len_low {Verify error on too low length arg} -body {
+  db eval {select padright('French Fries', -1);}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+test unicode1 {Verify correct padding with unicode chars} -body {
+  setup_unicode8 pdb
+  set a [pdb eval {select padright(source, 34) from test_padright where id = 1;}]
+  set b [pdb eval {select result from test_padright where id = 1;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+test unicode2 {Verify source return with length less than character count} -body {
+  setup_unicode8 pdb
+  set a [pdb eval {select padright(source, 26) from test_padright where id = 2;}]
+  set b [pdb eval {select result from test_padright where id = 2;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

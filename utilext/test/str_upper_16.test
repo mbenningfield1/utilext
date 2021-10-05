@@ -1,0 +1,42 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the upper() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test null {Verify NULL return for NULL arg} -body {
+  return [elem0 [db eval {select upper(NULL);}]]
+} -result NULL
+
+
+test empty {Verify empty return for empty arg} -body {
+  return [elem0 [db eval {select upper('');}]]
+} -result {}
+
+
+test normal {Verify case conversion} -body {
+  return [elem0 [db eval {select upper('HelLo WoRld');}]]
+} -result {HELLO WORLD}
+
+
+test unicode {Verify unicode case conversion} -body {
+  setup_unicode16 pdb
+  set a [pdb eval {select upper(source) from test_upper;}]
+  set b [pdb eval {select result from test_upper;}]
+  pdb close
+  return [listEquals $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

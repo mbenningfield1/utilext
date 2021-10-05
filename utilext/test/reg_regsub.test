@@ -1,0 +1,102 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the regsub() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test source_null {Verify NULL return with NULL source arg} -body {
+  return [elem0 [db eval {select regsub(NULL, '\d\w', 'apple');}]]
+} -result NULL
+
+
+test pattern_null {Verify NULL return with NULL pattern arg} -body {
+  return [elem0 [db eval {select regsub('Hello World', NULL, 'apple');}]]
+} -result NULL
+
+
+test sub_null {Verify NULL return with NULL repl. arg} -body {
+  return [elem0 [db eval {select regsub('Hello World', '\d\w', NULL);}]]
+} -result NULL
+
+
+test time_null {Verify NULL return with NULL timeout arg} -body {
+  return [elem0 [db eval {select regsub('Hello World', '\d\w', 'apple', NULL);}]]
+} -result NULL
+
+
+test match_sub {Verify replacement with match} -body {
+  set source {How now brown cow}
+  set result {Hegg negg breggn cegg}
+  set answer [elem0 [db eval {select regsub($source, 'ow', 'egg');}]]
+  return [expr {$answer eq $result}]
+} -result {1}
+
+
+test no_match {Verify return with no match} -body {
+  set source {The quick brown fox}
+  set answer [elem0 [db eval {select regsub($source, '\d+', 'apple');}]]
+  return [expr {$source eq $answer}]
+} -result {1}
+
+
+test time_neg {Verify regex runs with neg timeout} -body {
+  set source aaaaaaaaaaaaaaaaaaaaaaa!
+  set pattern {^(a+)+$}  
+  set answer [elem0 [db eval {select regsub($source, $pattern, '23', -1);}]]
+  return [expr {$answer eq $source}]
+} -result {1}
+
+
+test time_zero {Verify regex runs with zero timeout} -body {
+  set source aaaaaaaaaaaaaaaaaaaaaaa!
+  set pattern {^(a+)+$}  
+  set answer [elem0 [db eval {select regsub($source, $pattern, '23', 0);}]]
+  return [expr {$source eq $answer}]
+} -result {1}
+
+
+test time_pos {Verify regex runs with pos timeout} -body {
+  set source {It is not in the stars to hold our destiny but in ourselves.}
+  set pattern {s\b}
+  set sub {23}
+  set result {It i23 not in the star23 to hold our destiny but in ourselve23.}
+  set answer [elem0 [db eval {select regsub($source, $pattern, $sub, 500);}]]
+  return [expr {$result eq $answer}]
+} -result {1}
+
+
+test parse_err {Verify regex parsing error} -body {
+  set source {I think, therefore I am.}
+  set pattern {(.+}
+  db eval {select regsub($source, $pattern, 'max');}
+} -returnCodes 1 -result {parsing "(.+" - Not enough )'s.}
+
+
+test timeout_err {Verify timeout error} -body {
+  set source aaaaaaaaaaaaaaaaaaaaaaa!
+  set pattern {^(a+)+$}
+  db eval {select regsub($source, $pattern, '23', 500);}
+} -returnCodes 1 -result $SqliteAbort
+
+
+test unicode {Verify substitution with Unicode characters} -body {
+  setup_unicode8 pdb
+  set result [pdb eval {select result from test_regsub;}]
+  set answer [pdb eval {select regsub(source, pattern, repl) from test_regsub;}]
+  pdb close
+  return [expr {$result eq $answer}]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests
