@@ -51,7 +51,7 @@ namespace UtilityExtensions {
     static int TimespanAddTo(DbDate *pDate, bool isWide, Int64 time);
 
     /// <summary>
-    /// Creates a TimeSpan value from the specified DbDate interval.
+    /// Creates a TimeSpan value from the specified date/time interval.
     /// </summary>
     /// <param name="pDate">Pointer to an encapsulated SQLite date/time value</param>
     /// <param name="isWide">True if text encoding is UTF-16</param>

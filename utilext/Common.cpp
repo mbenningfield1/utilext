@@ -72,7 +72,7 @@ namespace UtilityExtensions {
     bool isNumber = false;
     *prev = 0;
     CultureInfo^ culture = nullptr;
-
+    
     if (lcName->StartsWith("0x", StringComparison::OrdinalIgnoreCase)) {
       isNumber = Int32::TryParse(lcName->Substring(2),
                                  NumberStyles::HexNumber,
@@ -159,5 +159,32 @@ CLEANUP:
     }
     free(pResult->pArr);
     return ERR_NOMEM;
+  }
+
+  int Common::SetBytes(array<u8>^ bytes, DbBytes *pResult) {
+    assert(bytes != nullptr);
+    DbBytes data;
+    data.cb = bytes->Length;
+    data.pData = (u8*)malloc((size_t)data.cb);
+    if (data.pData) {
+      if (data.cb > 0) {
+        pin_ptr<u8> pStart = &bytes[0];
+        memcpy(data.pData, pStart, (size_t)data.cb);
+      }
+      *pResult = data;
+    }
+    else {
+      return ERR_NOMEM;
+    }
+    return RESULT_OK;
+  }
+
+  array<u8>^ Common::GetBytes(DbBytes *pBuffer) {
+    assert(pBuffer);
+    DbBytes raw = *pBuffer;
+    array<u8>^ result =gcnew array<u8>(raw.cb);
+    pin_ptr<u8> pStart = &result[0];
+    memcpy(pStart, raw.pData, (size_t)raw.cb);
+    return result;
   }
 }

@@ -34,6 +34,10 @@
 #define	ERR_TIME_UNIX_RANGE 17 /* SQLITE_ERROR    */
 #define ERR_TIME_INVALID    18 /* SQLITE_RANGE    */
 #define ERR_CULTURE         19 /* SQLITE_NOTFOUND */
+#define ERR_BIGINT_PARSE    20 /* SQLITE_FORMAT   */
+#define ERR_BIGINT_OVFLOW   21 /* SQLITE_TOOBIG   */
+#define ERR_BIGINT_DIVZ     22 /* SQLITE_ERROR    */
+#define ERR_BIGINT_RANGE    23 /* SQLITE_RANGE    */
 
 #define ROUND_EVEN     0
 #define ROUND_NORMAL   1

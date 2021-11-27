@@ -39,6 +39,12 @@ namespace UtilityExtensions {
     int n;        /* number of strings in pArr              */
   };
 
+
+  struct DbBytes {
+    u8 *pData;
+    int cb;
+  };
+
 #pragma warning ( pop )
 
   ref class Common abstract sealed {
@@ -133,6 +139,10 @@ namespace UtilityExtensions {
     /// assigned to 'pResult', along with the length of the array.
     /// </returns>
     static int SetStringArray(array<String^>^ input, DbStrArr *pResult);
+
+    static array<u8>^ GetBytes(DbBytes *pBuffer);
+
+    static int SetBytes(array<u8>^ bytes, DbBytes *pResult);
 
   private:
     static CultureInfo^ _culture;

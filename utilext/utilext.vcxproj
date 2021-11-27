@@ -239,6 +239,7 @@
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="IntExt.h" />
     <ClInclude Include="constants.h" />
     <ClInclude Include="DecimalExt.h" />
     <ClInclude Include="Common.h" />
@@ -255,6 +256,7 @@
     <ClCompile Include="DecimalExt.cpp" />
     <ClCompile Include="functions.c" />
     <ClCompile Include="Common.cpp" />
+    <ClCompile Include="IntExt.cpp" />
     <ClCompile Include="RegexExt.cpp" />
     <ClCompile Include="splitvtab.c" />
     <ClCompile Include="StringExt.cpp" />
@@ -262,6 +264,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="LICENSE.txt" />
