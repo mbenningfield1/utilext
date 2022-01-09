@@ -50,8 +50,7 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native source string</param>
     /// <param name="pPattern">Encoded native pattern string</param>
-    /// <param name="index">Index in 'zIn' to begin search</param>
-    /// <param name="isWide">True if text is UTF16</param>
+    /// <param name="index">Index in <paramref name="pIn"/> to begin search</param>
     /// <param name="noCase">True to ignore case when matching</param>
     /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
@@ -62,7 +61,6 @@ namespace UtilityExtensions {
       DbStr *pIn,
       DbStr *pPattern,
       int index,
-      bool isWide,
       bool noCase,
       int *pResult
     );
@@ -73,20 +71,13 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native source string</param>
     /// <param name="pMatch">Encoded native match string</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="noCase">True if the match should be case-insensitive</param>
-    /// <param name="ppResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int ExFilter(
-      DbStr *pIn,
-      DbStr *pMatch,
-      bool isWide,
-      bool noCase,
-      void **ppResult
-    );
+    static int ExFilter(DbStr *pIn, DbStr *pMatch, bool noCase, DbStr *pResult);
 
     /// <summary>
     /// Produces a string that has only the characters in the specified source
@@ -94,33 +85,26 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native source string</param>
     /// <param name="pMatch">Encoded native match string</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="noCase">True if the match should be case-insensitive</param>
-    /// <param name="ppResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int InFilter(
-      DbStr *pIn,
-      DbStr *pMatch,
-      bool isWide,
-      bool noCase,
-      void **ppResult
-    );
+    static int InFilter(DbStr *pIn, DbStr *pMatch, bool noCase, DbStr *pResult);
 
     /// <summary>
     /// Produces a string that concatenates all of the specified values.
     /// </summary>
-    /// <param name="argc">The count of values in the 'aValues' array </param>
-    /// <param name="aValues">Array of 'DbStr' objects</param>
-    /// <param name="isWide">True if the strings in 'aValues' are in UTF16</param>
-    /// <param name="ppResult">Pointer to hold the string result</param>
+    /// <param name="argc">The count of values in the
+    /// <paramref name="aValues"/> array</param>
+    /// <param name="aValues">Array of DbStr objects</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="ppResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int Join(int argc, DbStr *aValues, bool isWide, void **ppResult);
+    static int Join(int argc, DbStr *aValues, DbStr *pResult);
 
     /// <summary>
     /// Produces a string that contains the specified number of characters from
@@ -128,13 +112,12 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native string</param>
     /// <param name="count">The number of characters to include</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="ppResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int LeftString(DbStr *pIn, int count, bool isWide, void **ppResult);
+    static int LeftString(DbStr *pIn, int count, DbStr *pResult);
 
     /// <summary>
     /// Overrides the built-in 'like()' SQL function to provide Unicode case-
@@ -143,7 +126,6 @@ namespace UtilityExtensions {
     /// <param name="pIn">Encoded native input string</param>
     /// <param name="pPattern">Encoded native pattern string</param>
     /// <param name="pEscape">Encoded native escape character string</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="noCase">True to ignore case when comparing</param>
     /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
@@ -154,7 +136,6 @@ namespace UtilityExtensions {
       DbStr *pIn,
       DbStr *pPattern,
       DbStr *pEscape,
-      bool isWide,
       bool noCase,
       int *pResult
     );
@@ -165,13 +146,12 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native string</param>
     /// <param name="len">The desired length of the result</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="ppResult">Pointer to hold the result.</param>
+    /// <param name="pResult">Pointer to hold the result.</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int PadCenter(DbStr *pIn, int len, bool isWide, void **ppResult);
+    static int PadCenter(DbStr *pIn, int len, DbStr *pResult);
 
     /// <summary>
     /// Produces a string that pads the specified string with spaces at the
@@ -179,13 +159,12 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native string</param>
     /// <param name="len">The desired length of the result</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="ppResult">Pointer to hold the result.</param>
+    /// <param name="pResult">Pointer to hold the result.</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int PadLeft(DbStr *pIn, int len, bool isWide, void **ppResult);
+    static int PadLeft(DbStr *pIn, int len, DbStr *pResult);
 
     /// <summary>
     /// Produces a string that pads the specified string with spaces at the end
@@ -193,13 +172,12 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native string</param>
     /// <param name="len">The desired length of the result</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="ppResult">Pointer to hold the result.</param>
+    /// <param name="pResult">Pointer to hold the result.</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int PadRight(DbStr *pIn, int len, bool isWide, void **ppResult);
+    static int PadRight(DbStr *pIn, int len, DbStr *pResult);
 
     /// <summary>
     /// Produces a string that consists of the specified string repeated the
@@ -207,25 +185,23 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native string</param>
     /// <param name="count">The number of times to repeat the string</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="ppResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int Replicate(DbStr *pIn, int count, bool isWide, void **ppResult);
+    static int Replicate(DbStr *pIn, int count, DbStr *pResult);
 
     /// <summary>
     /// Reverses the order of characters in the specified string.
     /// </summary>
     /// <param name="pIn">Encoded native string</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="ppResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigend to <paramref name="ppResult"/>.
+    /// assigend to <paramref name="pResult"/>.
     /// </returns>
-    static int Reverse(DbStr *pIn, bool isWide, void **ppResult);
+    static int Reverse(DbStr *pIn, DbStr *pResult);
 
     /// <summary>
     /// Produces a string that contains the specified number of characters from
@@ -233,65 +209,60 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Encoded native string</param>
     /// <param name="count">The number of characters to include</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="ppResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int RightString(DbStr *pIn, int count, bool isWide, void **ppResult);
+    static int RightString(DbStr *pIn, int count, DbStr *pResult);
 
     /// <summary>
     /// Sets the CultureInfo to the specified identifier.
     /// </summary>
-    /// <param name="zIn">Pointer to UTF8 native string that identifies the
+    /// <param name="pIn">Pointer to UTF8 native string that identifies the
     /// desired culture</param>
-    /// <param name="cbIn">Count of bytes in 'zIn'</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="previous">Pointer to hold the previous culture identifier</param>
     /// <returns>
     /// An integer result code. If successful, the LCID of the previous culture
-    /// is written to 'result'.
+    /// is written to <paramref name="previous"/>.
     /// </returns>
     /// <remarks>
-    /// The <paramref name="zIn"/> argument can be in the form of "0xHHHH" or
+    /// The <paramref name="pIn"/> argument can be in the form of "0xHHHH" or
     /// "NNNNN" for a recognized NLS integer LCID value, or in the form "xx-XX"
     /// for a recognized NLS locale name.
     /// <para>
-    /// If <paramref name="zIn"/> is an empty string, the InvariantCulture is
+    /// If <paramref name="pIn"/> is an empty string, the InvariantCulture is
     /// used.
     /// </para>
     /// <para>
-    /// If <paramref name="zIn"/> is NULL, then the LCID of the current culture
+    /// If <paramref name="pIn"/> is NULL, then the LCID of the current culture
     /// is written to <paramref name="previous"/>, and no change is made.
     /// </para>
     /// </remarks>
-    static int SetCulture(const void *zIn, int cbIn, bool isWide, int *previous);
+    static int SetCulture(DbStr *pIn, int *previous);
 
     /// <summary>
     /// Converts the specified string to upper- or lower-case.
     /// </summary>
     /// <param name="pIn">Encoded string input</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="upper">True if converting to upper case</param>
-    /// <param name="ppResult">Pointer to hold the resulting string</param>
+    /// <param name="pResult">Pointer to hold the resulting string</param>
     /// <returns>
     /// An integer result code. If successful, a string is allocated and
-    /// assigned to <paramref name="ppResult"/>.
+    /// assigned to <paramref name="pResult"/>.
     /// </returns>
-    static int UpperLower(DbStr *pIn, bool isWide, bool upper, void **ppResult);
+    static int UpperLower(DbStr *pIn, bool upper, DbStr *pResult);
 
     /// <summary>
     /// Impements the Unicode 'utf' collation sequence.
     /// </summary>
     /// <param name="pLeft">Encoded native string (lhs)</param>
     /// <param name="pRight">Encoded native string (rhs)</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="noCase">True if the comparison should be case-insensitive</param>
     /// <returns>
     /// The integer result of the comparison.
     /// </returns>
-    static int UtfCollate(DbStr *pLeft, DbStr *pRight, bool isWide, bool noCase);
+    static int UtfCollate(DbStr *pLeft, DbStr *pRight, bool noCase);
 
   private:
     static array<String^>^ parseGraphemes(String^ input);

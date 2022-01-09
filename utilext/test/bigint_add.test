@@ -1,0 +1,93 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_add() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test bigint_add-1.0 {Verify NULL result with zero args} -body {
+  return [db eval {select bigint_add();}]
+} -result {NULL}
+
+
+test bigint_add-1.1 {Verify NULL result with all args NULL} -body {
+  return [db eval {select bigint_add(NULL, NULL, NULL);}]
+} -result {NULL}
+
+
+test bigint_add-1.2 {Verify INTEGER args works} -body {
+  set a 65239478 ;# 1696830584
+  ;# 0x32478691     843548305
+  return [db eval {select bigint_add($a, 32478691);}]
+} -result 00976B1B09 ;# 2540378889
+
+
+test bigint_add-1.3 {Verify invalid INTEGER arg fails} -body {
+  set a 32478691 ;# 843548305
+  return [db eval {select bigint_add(-65239478, $a);}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_add-1.4 {Verify double value fails} -body {
+  set a 32478691 ;# 843548305
+  return [db eval {select bigint_add($a, 34.1);}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_add-1.5 {Verify non-hex string fails} -body {
+  set c [db eval {select bigint_add('fred', '0976B1B09');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_add-1.6 {Verify correct result with normal values} -body {
+  set a 0F9139DC6AB882661D0FB ;# 1176231111334852730933499
+  set b 5783C507F4DC4802A7D5C ;# 6612425681102277307956572
+  set c 2BA335086CEE712E8E8C3 ;# 3297158391543433309776067
+  return [db eval {select bigint_add($a, $b, $c);}]
+} -result 092B833ECCC833B975371A ;# 1108581518398056334866138
+
+
+test bigint_add-1.7 {Verify NULL args are skipped} -body {
+  set a 0F9139DC6AB882661D0FB ;# 1176231111334852730933499
+  set b 5783C507F4DC4802A7D5C ;# 6612425681102277307956572
+  set c 2BA335086CEE712E8E8C3 ;# 3297158391543433309776067
+  return [db eval {select bigint_add($a, NULL, $b, NULL, $c);}]
+} -result 092B833ECCC833B975371A ;# 1108581518398056334866138
+
+
+test bigint_add-1.8 {Verify valid BLOB value succeeds} -body {
+  set a 2A3B4C5D ;# 708529245
+  ;# 0X3661376235633964 is utf8 "6A7B5C9D"
+  return [db eval {select bigint_add($a, X'3661376235633964');}]
+} -result 0094B6A8FA ;# 2494998778
+
+
+test bigint_add-1.9 {Verify invalid BLOB value fails} -body {
+  set a 2A3B4C5D ;# 708529245
+  ;# 0x6a7b5c9d is utf8 garbage
+  return [db eval {select bigint_add($a, X'6a7b5c9d');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_add-1.10 {Verify result with one arg} -body {
+  return [db eval {select bigint_add('2A3B');}]
+} -result 2A3B
+
+
+test bigint_add-1.11 {Verify result with one null arg} -body {
+  return [db eval {select bigint_add(NULL);}]
+} -result NULL
+
+
+db close
+tcltest::cleanupTests
+

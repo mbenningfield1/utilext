@@ -14,6 +14,9 @@
 # The tests use the tcltest package Tcl/Tk testing framework. This package
 # should be part of any standard Tcl/Tk distribution.
 #
+# Before running this test suite, you must batch build the project for all
+# configuration and platform options -- Debug/Release and Win32/x64
+#
 #===============================================================================
 
 package require tcltest
@@ -33,10 +36,9 @@ puts $fp "********************************************"
 close $fp
 file copy -force -- "../../Output/$platform/$config/utilext.dll" [pwd]
 if {[lindex $argv 2] eq {quick}} {
-  tcltest::configure -outfile test_results.txt -notfile datetime.test
+  tcltest::configure -outfile test_results.txt -debug 1 -notfile datetime.test
 } else {
-  tcltest::configure -outfile test_results.txt
+  tcltest::configure -outfile test_results.txt -debug 1
 }
 tcltest::runAllTests
 file delete utilext.dll
-exit

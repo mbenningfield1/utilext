@@ -1,0 +1,73 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the dec_rem() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test dec_rem-2.0 {Verify NULL return for NULL lhs arg} -body {
+  return [elem0 [db eval {select dec_rem(NULL, '2.5');}]]
+} -result NULL
+
+
+test dec_rem-2.1 {Verify NULL return for NULL rhs arg} -body {
+  return [elem0 [db eval {select dec_rem('2.5', NULL);}]]
+} -result NULL
+
+
+test dec_rem-2.2 {Verify correct integer remainder} -body {
+  return [elem0 [db eval {select dec_rem('1000', '7');}]]
+} -result 6
+
+
+test dec_rem-2.3 {Verify correct zero remainder} -body {
+  return [elem0 [db eval {select dec_rem('123.00000', '0.00123');}]]
+} -result 0.00000
+
+
+test dec_rem-2.4 {Verify small decimal remainder} -body {
+  return [elem0 [db eval {select dec_rem('12345678900000000', '0.0000000012345678');}]]
+} -result 0.000000000983
+
+
+test dec_rem-2.5 {Verify decimal remainder near quotient of 1} -body {
+  return [elem0 [db eval {select dec_rem('123456789.0123456789', '123456789.1123456789');}]]
+} -result 123456789.0123456789
+
+
+test dec_rem-2.6 {Verify parse error on non-numeri lhs arg} -body {
+  db eval {select dec_rem('fred', '3.2');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test dec_rem-2.7 {Verify parse error on non-numeric rhs arg} -body {
+  db eval {select dec_rem('4.5', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test dec_rem-2.8 {Verify div by zero error} -body {
+  db eval {select dec_rem('5.6', '0.0');}
+} -returnCodes 1 -result $SqliteError
+
+
+test dec_rem-2.9 {Verify range error on too small result} -body {
+  db eval {select dec_rem(:DEC_MIN, '0.01');}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test dec_rem-2.10 {Verify range error on too large result} -body {
+  db eval {select dec_rem(:DEC_MAX, '0.01');}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+db close
+tcltest::cleanupTests

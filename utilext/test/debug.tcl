@@ -18,7 +18,7 @@
 package require tcltest
 
 file delete test_results.txt
-file copy -force -- "../../Output/x64/debug/utilext.dll" [pwd]
+file copy -force -- "../../Output/x86/release/utilext.dll" [pwd]
 tcltest::configure -outfile test_results.txt
-source dec_avg.test
+source blam.test
 exit

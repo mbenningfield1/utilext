@@ -1,0 +1,60 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_abs() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_abs-2.0 {Verify fails with REAL value} -body {
+  set c [db eval {select bigint_abs(34.5);}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_abs-2.1 {Verify INTEGER value converts to hex string} -body {
+  return [db eval {select bigint_abs(23256);}]
+} -result 023256
+
+
+test bigint_abs-2.2 {Verify fails with unconvertible INTEGER} -body {
+  return [db eval {select bigint_abs(-34);}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_abs-2.3 {Verify fails with invalid TEXT value} -body {
+  set c [db eval {select bigint_abs('fred');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_abs-2.4 {Verify good result with valid TEXT value} -body {
+  return [db eval {select bigint_abs('4A2B3C');}]
+} -result 4A2B3C
+
+
+test bigint_abs-2.5 {Verify fails with bad BLOB value} -body {
+  ;# 0x2a3b4c is "*;L" utf8
+  set c [db eval {select bigint_abs(X'2A3B4C');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_abs-2.6 {Verify a good BLOB value succeeds} -body {
+  ;# 0x320061003300620034006300 is utf16 "2a3b4c"
+  return [db eval {select bigint_abs(X'320061003300620034006300');}]
+} -result 2A3B4C
+
+
+test bigint_abs-2.7 {Verify returns NULL with NULL arg} -body {
+  return [db eval {select bigint_abs(NULL);}]
+} -result {NULL}
+
+
+db close
+tcltest::cleanupTests

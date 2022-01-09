@@ -13,39 +13,13 @@
 #pragma once
 
 #include "constants.h"
+#include "utilext.h"
 
 using namespace System;
 using namespace System::Text;
 using namespace System::Globalization;
 
 namespace UtilityExtensions {
-
-#pragma warning( push )
-#pragma warning( disable: 4820 ) /* struct padding added */
-
-  /* Native struct that represents a zero-terminated string from the database,
-  ** encoded in UTF-8 or UTF-16.
-  */
-  struct DbStr {
-    const void *pText;  /* pointer to the string bytes       */
-    int cb;             /* count of bytes in pText (less \0) */
-  };
-
-  /* Native struct that represents a heap-allocated array of UTF-8 strings that
-  ** is used for the regsplit() table-valued SQL function.
-  */
-  struct DbStrArr {
-    char **pArr;  /* pointer to an array of encoded strings */
-    int n;        /* number of strings in pArr              */
-  };
-
-
-  struct DbBytes {
-    u8 *pData;
-    int cb;
-  };
-
-#pragma warning ( pop )
 
   ref class Common abstract sealed {
 
@@ -64,33 +38,12 @@ namespace UtilityExtensions {
     /// Converts a native pointer into a managed string, using the specified
     /// encoding.
     /// </summary>
-    /// <param name="zInput">Pointer to a native string</param>
-    /// <param name="cbIn">Count of bytes in 'zInput'</param>
-    /// <param name="isWide">True if the encoding is UTF-16</param>
-    /// <returns>
-    /// A managed string.
-    /// </returns>
-    /// <remarks>
-    /// This overload is used when we have an 'DbStr' struct instance in
-    /// hand instead of a pointer to a struct instance. That struct is not very
-    /// large (but it is padded on 64-bit systems). Rather than delving into
-    /// a pointless analysis to determine if the compiler can -- or will --
-    /// optimize passing the entire struct as a parameter, we just flatten out
-    /// and pass the members.
-    /// </remarks>
-    static String^ GetString(const void *zInput, int cbIn, bool isWide);
-
-    /// <summary>
-    /// Converts a native pointer into a managed string, using the specified
-    /// encoding.
-    /// </summary>
-    /// <param name="pInput">A 'DbStr' object that contains a pointer to a
+    /// <param name="pInput">A DbStr object that contains a pointer to a
     /// native string and the count of bytes in that string.</param>
-    /// <param name="isWide">True if the encoding is UTF-16</param>
     /// <returns>
     /// A managed string.
     /// </returns>
-    static String^ GetString(DbStr *pInput, bool isWide);
+    static String^ GetString(DbStr *pInput);
 
     /// <summary>
     /// Sets the CultureInfo to use for the current application session.
@@ -115,34 +68,29 @@ namespace UtilityExtensions {
     static int SetCultureInfo(String^ lcName, int *prev);
 
     /// <summary>
-    /// Converts a managed string into a heap-allocated native string with the
-    /// specified encoding.
+    /// Converts a managed string into a heap-allocated UTF-8 error message.
     /// </summary>
     /// <param name="output">The managed string to convert</param>
-    /// <param name="isWide">True if the encoding should be UTF16</param>
-    /// <param name="ppResult">Pointer to the allocated string</param>
+    /// <param name="pzResult">Pointer to receive the allocated string</param>
     /// <returns>
-    /// An integer result code. If not successful, <paramref name="ppResult"/>
-    /// is set to point to a NULL pointer. This happens if memory allocation
-    /// fails.
+    /// An integer result code. If successful, a string is allocated as assigned
+    /// to <paramref name="pzResult"/>.
     /// </returns>
-    static int SetString(String^ output, bool isWide, void **ppResult);
+    static int SetErrorString(String^ output, char **pzResult);
 
+    static int SetString(String^ output, bool isWide, DbStr *pResult);
     /// <summary>
     /// Converts a managed string array into a heap-allocated UTF-8 native
     /// string array.
     /// </summary>
     /// <param name="input">The managed string array to convert</param>
-    /// <param name="pResult">A 'DbStrArr' object to hold the native array</param>
+    /// <param name="pResult">A DbStrArr object to hold the native array</param>
     /// <returns>
-    /// An integer result code. If successful, an allocated array of char*'s is
-    /// assigned to 'pResult', along with the length of the array.
+    /// An integer result code. If successful, an allocated string array is
+    /// assigned to <paramref name="pResult"/>, along with the length of the
+    /// array.
     /// </returns>
     static int SetStringArray(array<String^>^ input, DbStrArr *pResult);
-
-    static array<u8>^ GetBytes(DbBytes *pBuffer);
-
-    static int SetBytes(array<u8>^ bytes, DbBytes *pResult);
 
   private:
     static CultureInfo^ _culture;

@@ -27,44 +27,38 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result string</param>
+    /// <param name="pResult">Pointer to hold the result string</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalAbs(DbStr *pIn, bool isWide, void **zResult);
+    static int DecimalAbs(DbStr *pIn, DbStr *pResult);
 
     /// <summary>
     /// Wraps decimal addition.
     /// </summary>
-    /// <param name="argc">The count of arguments in the 'aValues' array</param>
-    /// <param name="aValues">Array of 'DbStr' objects</param>
-    /// <param name="isWide">True if the strings in 'aValues' are in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="argc">The count of arguments in the
+    /// <paramref name="aValues"/> array</param>
+    /// <param name="aValues">Array of DbStr objects</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalAdd(int argc, DbStr *aValues, bool isWide, void **zResult);
+    static int DecimalAdd(int argc, DbStr *aValues, DbStr *pResult);
 
     /// <summary>
     /// Calculates the average of all arguments.
     /// </summary>
-    /// <param name="argc">The count of arguments in the 'aValues' array</param>
-    /// <param name="aValues">Array of 'DbStr' objects</param>
-    /// <param name="isWide">True if the strings in 'aValues' are in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="argc">The count of arguments in the
+    /// <paramref name="aValues"/> array</param>
+    /// <param name="aValues">Array of DbStr objects</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalAverageAny(
-      int argc,
-      DbStr *aValues,
-      bool isWide,
-      void **zResult
-    );
+    static int DecimalAverageAny(int argc, DbStr *aValues, DbStr *pResult);
 
     /// <summary>
     /// Implements the xFinal() function for the aggregate dec_avg() SQL
@@ -72,12 +66,12 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pAgg">SQLite aggregate context pointer</param>
     /// <param name="isWide">True if text is desired in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalAverageFinal(int *pAgg, bool isWide, void **zResult);
+    static int DecimalAverageFinal(u64 *pAgg, bool isWide, DbStr *pResult);
 
     /// <summary>
     /// Implements the xInverse() function for the aggregate dec_avg() SQL
@@ -85,12 +79,11 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="pAgg">SQLite aggregate context pointer</param>
     /// <returns>
     /// An integer result code.
     /// </returns>
-    static int DecimalAverageInverse(DbStr *pIn, bool isWide, int *pAgg);
+    static int DecimalAverageInverse(DbStr *pIn, u64 *pAgg);
 
     /// <summary>
     /// Implements the xStep() function for the aggregate dec_avg() SQL
@@ -98,12 +91,11 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="pAgg">SQLite aggregate context pointer</param>
     /// <returns>
     /// An integer result code.
     /// </returns>
-    static int DecimalAverageStep(DbStr *pIn, bool isWide, int *pAgg);
+    static int DecimalAverageStep(DbStr *pIn, u64 *pAgg);
 
     /// <summary>
     /// Implements the xValue() function for the aggregate dec_avg() SQL
@@ -111,294 +103,245 @@ namespace UtilityExtensions {
     /// </summary>
     /// <param name="pAgg">SQLite aggregate context pointer</param>
     /// <param name="isWide">True if text is desired in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalAverageValue(int *pAgg, bool isWide, void **zResult);
+    static int DecimalAverageValue(u64 *pAgg, bool isWide, DbStr *pResult);
 
     /// <summary>
     /// Wraps the Decimal.Ceiling() method.
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalCeiling(DbStr *pIn, bool isWide, void **zResult);
+    static int DecimalCeiling(DbStr *pIn, DbStr *pResult);
 
     /// <summary>
     /// Implements the 'decimal' collation sequence.
     /// </summary>
     /// <param name="pLeft">The lhs comparison operand as text</param>
     /// <param name="pRight">The rhs comparison operand as text</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <returns>
     /// The integer comparison result.
     /// </returns>
-    static int DecimalCollate(DbStr *pLeft, DbStr *pRight, bool isWide);
+    static int DecimalCollate(DbStr *pLeft, DbStr *pRight);
 
     /// <summary>
     /// Wraps the Decimal.Compare() method.
     /// </summary>
     /// <param name="pLeft">The lhs comparison operand as text</param>
     /// <param name="pRight">The rhs comparison operand as text</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="pResult">Pointer to hold the comparison result</param>
     /// <returns>
     /// An integer result code. If successful, writes the result of the
     /// comparison into <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalCompare(
-      DbStr *pLeft,
-      DbStr *pRight,
-      bool isWide,
-      int *pResult
-    );
+    static int DecimalCompare(DbStr *pLeft, DbStr *pRight, int *pResult);
 
     /// <summary>
     /// Wraps decimal division.
     /// </summary>
     /// <param name="pLeft">The lhs comparison operand as text</param>
     /// <param name="pRight">The rhs comparison operand as text</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalDivide(
-      DbStr *pLeft,
-      DbStr *pRight,
-      bool isWide,
-      void **zResult
-    );
+    static int DecimalDivide(DbStr *pLeft, DbStr *pRight, DbStr *pResult);
 
     /// <summary>
     /// Wraps the Decimal.Floor() method.
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalFloor(DbStr *pIn, bool isWide, void **zResult);
+    static int DecimalFloor(DbStr *pIn, DbStr *pResult);
 
     /// <summary>
-    /// Calculates the maximum value of both arguments.
+    /// Wraps the Math.Log() method.
     /// </summary>
-    /// <param name="pLeft">The lhs comparison operand as text</param>
-    /// <param name="pRight">The rhs comparison operand as text</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result</param>
+    /// <param name="pIn">Pointer to an DbStr structure that contains the
+    /// decimal value as an encoded string</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalMax2(
-      DbStr *pLeft,
-      DbStr *pRight,
-      bool isWide,
-      void **zResult
-    );
+    static int DecimalLog(DbStr *pIn, DbStr *pResult);
 
     /// <summary>
-    /// Calculates the maximum value of all arguments.
+    /// Wraps the Math.Log() method.
     /// </summary>
-    /// <param name="argc">The count of arguments in the 'aValues' array</param>
-    /// <param name="aValues">Array of 'DbStr' objects</param>
-    /// <param name="isWide">True if the strings in 'aValues' are in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="pIn">Pointer to an DbStr structure that contains the
+    /// decimal value as an encoded string</param>
+    /// <param name="base">Base of the desired log</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalMaxAny(int argc, DbStr *aValues, bool isWide, void **zResult);
+    static int DecimalLog(DbStr *pIn, double base, DbStr *pResult);
 
     /// <summary>
-    /// Calculates the minimum value of both arguments.
+    /// Wraps the Math.Log10() method.
     /// </summary>
-    /// <param name="pLeft">The lhs comparison operand as text</param>
-    /// <param name="pRight">The rhs comparison operand as text</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result</param>
+    /// <param name="pIn">Pointer to an DbStr structure that contains the
+    /// decimal value as an encoded string</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalMin2(
-      DbStr *pLeft,
-      DbStr *pRight,
-      bool isWide,
-      void **zResult
-    );
-
-    /// <summary>
-    /// Calculates the minimum value of all arguments.
-    /// </summary>
-    /// <param name="argc">The count of arguments in the 'aValues' array</param>
-    /// <param name="aValues">Array of 'DbStr' objects</param>
-    /// <param name="isWide">True if the strings in 'aValues' are in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
-    /// <returns>
-    /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
-    /// </returns>
-    static int DecimalMinAny(int argc, DbStr *aValues, bool isWide, void **zResult);
+    static int DecimalLog10(DbStr *pIn, DbStr *pResult);
 
     /// <summary>
     /// Calculates the product of all arguments.
     /// </summary>
-    /// <param name="argc">The count of arguments in the 'aValues' array</param>
-    /// <param name="aValues">Array of 'DbStr' objects</param>
-    /// <param name="isWide">True if the strings in 'aValues' are in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="argc">The count of arguments in the
+    /// <paramref name="aValues"/> array</param>
+    /// <param name="aValues">Array of DbStr objects</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalMultiply(int argc, DbStr *aValues, bool isWide,void **zResult);
+    static int DecimalMultiply(int argc, DbStr *aValues, DbStr *pResult);
 
     /// <summary>
     /// Wraps the Decimal.Negate() method.
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result string</param>
+    /// <param name="pResult">Pointer to hold the result string</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalNegate(DbStr *pIn, bool isWide, void **zResult);
+    static int DecimalNegate(DbStr *pIn, DbStr *pResult);
+
+    /// <summary>
+    /// Wraps the Math.Pow() function for decimal base values.
+    /// </summary>
+    /// <param name="pIn">Pointer to an DbStr structure that contains the
+    /// decimal value as an encoded string</param>
+    /// <param name="exponent">Double exponent value</param>
+    /// <param name="pResult">Pointer to hold the result string</param>
+    /// <returns>
+    /// An integer result code. If successful, allocates and assigns a string to
+    /// <paramref name="pResult"/>.
+    /// </returns>
+    static int DecimalPower(DbStr *pIn, double exponent, DbStr *pResult);
 
     /// <summary>
     /// Wraps the Decimal.Remainder() method.
     /// </summary>
     /// <param name="pLeft">The lhs comparison operand as text</param>
     /// <param name="pRight">The rhs comparison operand as text</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalRemainder(
-      DbStr *pLeft,
-      DbStr *pRight,
-      bool isWide,
-      void **zResult
-    );
+    static int DecimalRemainder(DbStr *pLeft, DbStr *pRight, DbStr *pResult);
 
     /// <summary>
-    /// Wraps the Decimal.Round() method.
+    /// Wraps the Math.Round() method for decimal values.
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result string</param>
+    /// <param name="digits">The number of digits after the </param>
+    /// <param name="pMode"></param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalRound(
-      DbStr *pIn,
-      bool isWide,
-      int digits,
-      const void *zMode,
-      int cbMode,
-      void **zResult
-    );
+    static int DecimalRound(DbStr *pIn, int digits, DbStr *pMode, DbStr *pResult);
 
     /// <summary>
     /// Wraps decimal subtraction.
     /// </summary>
     /// <param name="pLeft">The lhs comparison operand as text</param>
     /// <param name="pRight">The rhs comparison operand as text</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result</param>
+    /// <param name="pResult">Pointer to hold the result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalSubtract(
-      DbStr *pLeft,
-      DbStr *pRight,
-      bool isWide,
-      void **zResult
-    );
+    static int DecimalSubtract(DbStr *pLeft, DbStr *pRight, DbStr *pResult);
 
     /// <summary>
-    /// Implements the xFinal() function for the aggregate dec_sum() SQL
+    /// Implements the xFinal() function for the aggregate dec_total() SQL
     /// window function.
     /// </summary>
     /// <param name="pAgg">SQLite aggregate context pointer</param>
     /// <param name="isWide">True if text is desired in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalSumFinal(int *pAgg, bool isWide, void **zResult);
+    static int DecimalTotalFinal(u64 *pAgg, bool isWide, DbStr *pResult);
 
     /// <summary>
-    /// Implements the xInverse() function for the aggregate dec_sum() SQL
+    /// Implements the xInverse() function for the aggregate dec_total() SQL
     /// window function.
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="pAgg">SQLite aggregate context pointer</param>
     /// <returns>
     /// An integer result code.
     /// </returns>
-    static int DecimalSumInverse(DbStr *pIn, bool isWide, void *pAgg);
+    static int DecimalTotalInverse(DbStr *pIn, void *pAgg);
 
     /// <summary>
-    /// Implements the xStep() function for the aggregate dec_sum() SQL
+    /// Implements the xStep() function for the aggregate dec_total() SQL
     /// window function.
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
     /// <param name="pAgg">SQLite aggregate context pointer</param>
     /// <returns>
     /// An integer result code.
     /// </returns>
-    static int DecimalSumStep(DbStr *pIn, bool isWide, void *pAgg);
+    static int DecimalTotalStep(DbStr *pIn, void *pAgg);
 
     /// <summary>
-    /// Implements the xValue() function for the aggregate dec_sum() SQL
+    /// Implements the xValue() function for the aggregate dec_total() SQL
     /// window function.
     /// </summary>
     /// <param name="pAgg">SQLite aggregate context pointer</param>
     /// <param name="isWide">True if text is desired in UTF16</param>
-    /// <param name="zResult">Pointer to hold the string result</param>
+    /// <param name="pResult">Pointer to hold the string result</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalSumValue(void *pAgg, bool isWide, void **zResult);
+    static int DecimalTotalValue(void *pAgg, bool isWide, DbStr *pResult);
 
     /// <summary>
     /// Wraps the Decimal.Truncate() method.
     /// </summary>
     /// <param name="pIn">Pointer to an DbStr structure that contains the
     /// decimal value as an encoded string</param>
-    /// <param name="isWide">True if text is UTF16</param>
-    /// <param name="zResult">Pointer to hold the result string</param>
+    /// <param name="pResult">Pointer to hold the result string</param>
     /// <returns>
     /// An integer result code. If successful, allocates and assigns a string to
-    /// <paramref name="zResult"/>.
+    /// <paramref name="pResult"/>.
     /// </returns>
-    static int DecimalTruncate(DbStr *pIn, bool isWide, void **zResult);
+    static int DecimalTruncate(DbStr *pIn, DbStr *pResult);
 
   private:
     static Dictionary<IntPtr, Decimal>^ _values;
@@ -406,5 +349,6 @@ namespace UtilityExtensions {
       _values = gcnew Dictionary<IntPtr, Decimal>;
     }
     static bool parseDecimal(String^ input, Decimal% result);
+    static Decimal roundDouble(double d);
   };
 }

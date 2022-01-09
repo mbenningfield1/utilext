@@ -1,0 +1,69 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_div() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_div-2.0 {Verify NULL return for NULL lhs arg} -body {
+  return [elem0 [db eval {select bigint_div(NULL, '1C8');}]]
+} -result NULL
+
+
+test bigint_div-2.1 {Verify NULL return for NULL rhs arg} -body {
+  return [elem0 [db eval {select bigint_div('1C8', NULL);}]]
+} -result NULL
+
+
+test bigint_div-2.2 {Divide some numbers} -body {
+  return [elem0 [db eval {select bigint_div('1C8', '3');}]]
+} -result 0098
+
+
+test bigint_div-2.3 {Verify parse error on non-numeric lhs arg} -body {
+  db eval {select bigint_div('fred', '1C8');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_div-2.4 {Verify parse error on non-numeric rhs arg} -body {
+  db eval {select bigint_div('1C8', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_div-2.5 {Verify div by zero error} -body {
+  db eval {select bigint_div('1C8', '0');}
+} -returnCodes 1 -result $SqliteError
+
+
+test bigint_div-2.6 {Verify valid INTEGER arg works} -body {
+  return [db eval {select bigint_div('1C8', 3);}]
+} -result 0098
+
+
+test bigint_div-2.7 {Verify REAL arg fails} -body {
+  db eval {select  bigint_div('1C8', 3.2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_div-2.8 {Verify valid BLOB succeeds} -body {
+  # 0x35003200 is 52 utf16
+  return [db eval {select bigint_div('26F', X'35003200');}]
+} -result 07
+
+
+test bigint_div-2.9 {Verify invalid BLOB fails} -body {
+  db eval {select bigint_div('26F', X'2A3B4C');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

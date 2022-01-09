@@ -1,0 +1,48 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the 1-argument dec_log() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test dec_log-4.0 {Verify correct result} -body {
+  return [db eval {select dec_log('6523.3256984');}]
+} -result 8.7831
+
+
+test dec_log-4.1 {Verify NULL result with NULL arg} -body {
+  return [db eval {select dec_log(NULL);}]
+} -result NULL
+
+
+test dec_log-4.2 {Verify NULL return with NaN result} -body {
+  return [db eval {select dec_log('-4.0');}]
+} -result NULL
+
+
+test dec_log-4.3 {Verify NULL return with -Inf result} -body {
+  return [db eval {select dec_log('0');}]
+} -result NULL
+
+
+test dec_log-4.4 {Verify error on non-numeric input} -body {
+  db eval {select dec_log('fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test dec_log-4.5 {Verify error on out of range input} -body {
+  db eval {select dec_log('32565852325698541254785412547854');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

@@ -1,0 +1,66 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the 1-arg bigint_log() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_log-4.0 {Verify NULL with NaN result} -body {
+  return [db eval {select bigint_log('F1BC');}]
+} -result NULL
+
+
+test bigint_log-4.1 {Verify NULL return with -Inf result} -body {
+  return [db eval {select bigint_log('0');}]
+} -result NULL
+
+
+test bigint_log-4.2 {Verify NULL return for NULL number arg} -body {
+  return [db eval {select bigint_log(NULL);}]
+} -result NULL
+
+
+test bigint_log-4.3 {Verify parse error on non-numeric number arg} -body {
+  db eval {select bigint_log('fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_log-4.4 {Verify fails with REAL number arg} -body {
+  db eval {select bigint_log(3.2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_log-4.5 {Verify INTEGER as valid hex string} -body {
+  # 0x356985 is 3500421
+  return [db eval {select bigint_log('356985');}]
+} -result 15.06839380494018
+
+
+test bigint_log-4.6 {Verify fails with invalid INTEGER number} -body {
+  db eval {select bigint_log(-34);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_log-4.7 {Verify fails with invalid BLOB value} -body {
+  db eval {select bigint_log(X'2A3B4C');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_log-4.8 {Verify a valid BLOB value succeeds} -body {
+  # 008EAD is 36525
+  # 0x300030003800450041004400 is 008EAD in utf16
+  return [db eval {select bigint_log(X'300030003800450041004400');}]
+} -result 10.5057522366189
+
+
+db close
+tcltest::cleanupTests

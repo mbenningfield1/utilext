@@ -1,0 +1,67 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test bigint_ctor-1.0 {Verify a bare integer value succeeds} -body {
+  return [db eval {select bigint(34443);}]
+} -result 00868B
+
+
+test bigint_ctor-1.1 {Verify a valid integer string succeeds} -body {
+  return [db eval {select bigint('34443');}]
+} -result 00868B
+
+
+test bigint_ctor-1.2 {Verify a prefixed hex string succeeds} -body {
+  return [db eval {select bigint('0x1041D');}]
+} -result 01041D
+
+
+test bigint_ctor-1.3 {Verify a non-prefixed hex string succeeds} -body {
+  return [db eval {select bigint('1041D');}]
+} -result 01041D
+
+
+test bigint_ctor-1.4 {Verify a bare double value succeeds} -body {
+  # 325 is 0x145
+  return [db eval {select bigint(325.3365);}]
+} -result 0145
+
+
+test bigint_ctor-1.5 {Verify a double string succeeds} -body {
+  # 325 is 0x145
+  return [db eval {select bigint('325.665');}]
+} -result 0145
+
+
+test bigint_ctor-1.6 {Verify a non-number double fails} -body {
+  set a [expr 1e200 * 1e200]
+  set b [db eval {select bigint($a);}]
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test bigint_ctor-1.7 {Verify a non-numeric string fails} -body {
+  set a [db eval {select bigint('fred');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_ctor-1.8 {Verify a BLOB value fails} -body {
+  set a [db eval {select bigint(X'33333235');}]
+} -returnCodes 1 -result $SqliteMisuse
+
+
+db close
+tcltest::cleanupTests
+

@@ -1,0 +1,78 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the 3 argument dec_round() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test dec_round4-1.0 {Verify NULL return on NULL value} -body {
+  return [elem0 [db eval {select dec_round(NULL, 2, 'even');}]]
+} -result NULL
+
+
+test dec_round4-1.1 {Verify rounding to even from 5} -body {
+  return [elem0 [db eval {select dec_round('2.345', 2, 'even');}]]
+} -result 2.34
+
+
+test dec_round4-1.2 {Verify rounding away from zero from 5} -body {
+  return [elem0 [db eval {select dec_round('2.345', 2, 'norm');}]]
+} -result 2.35
+
+
+test dec_round4-1.3 {Verify normal rounding to even} -body {
+  return [elem0 [db eval {select dec_round('3.2556', 3, 'even');}]]
+} -result 3.256
+
+
+test dec_round4-1.4 {Verify normal rounding away from zero} -body {
+  return [elem0 [db eval {select dec_round('4.6749', 3, 'norm');}]]
+} -result 4.675
+
+
+test dec_round4-1.5 {Verify that a non-numeric digit arg converts to 0} -body {
+  return [elem0 [db eval {select dec_round('3.655', 'fred');}]]
+} -result 4
+
+
+test dec_round4-1.6 {Verify parse error on non-numeric value} -body {
+  db eval {select dec_round('fred', 3, 'even');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test dec_round4-1.7 {Verify mode error on invalid mode option} -body {
+  db eval {select dec_round('3.34556', 3, 'fred');}
+} -returnCodes 1 -result $SqliteNotFound
+
+
+test dec_round4-1.8 {Verify precision error} -body {
+  db eval {select dec_round('2.3765', -1, 'norm');}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+test dec_round4-1.9 {Verify precision error} -body {
+  db eval {select dec_round('3.5693', 29, 'norm');}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+test dec_round-1.10 {Verify upper case 'even' mode recognized} -body {
+  return [elem0 [db eval {select dec_round('3.2556', 3, 'EVEN');}]]
+} -result 3.256
+
+
+test dec_round-1.11 {Verify upper case 'norm' mode recognized} -body {
+  return [elem0 [db eval {select dec_round('4.6749', 3, 'NORM');}]]
+} -result 4.675
+
+
+db close
+tcltest::cleanupTests

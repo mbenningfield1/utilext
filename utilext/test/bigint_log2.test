@@ -1,0 +1,81 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the 2-arg bigint_log() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_log-2.0 {Verify NULL with NaN result} -body {
+  return [db eval {select bigint_log('1F4', -3.2);}]
+} -result NULL
+
+
+test bigint_log-2.1 {Verify NULL return with -Inf result} -body {
+  return [db eval {select bigint_log('0', 1.5);}]
+} -result NULL
+
+
+test bigint_log-2.2 {Verify NULL return with +Inf result} -body {
+  return [db eval {select bigint_log('0', 0.5);}]
+} -result NULL
+
+
+test bigint_log-2.3 {Verify NULL return for NULL number arg} -body {
+  return [db eval {select bigint_log(NULL, 2);}]
+} -result NULL
+
+
+test bigint_log-2.4 {Verify NULL return for NULL base arg} -body {
+  return [db eval {select bigint_log('1F4', NULL);}]
+} -result NULL
+
+
+test bigint_log-2.5 {Verify parse error on non-numeric number arg} -body {
+  db eval {select bigint_log('fred', 2.0);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_log-2.6 {Verify fails with REAL number arg} -body {
+  db eval {select bigint_log(3.2, 2.0);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_log-2.7 {Verify non-numeric REAL arg converts to 0} -body {
+  return [db eval {select bigint_log('1F4', 'fred');}]
+} -result NULL ;# result is NaN
+
+
+test bigint_log-2.8 {Verify INTEGER as valid hex string} -body {
+  # 0x356985 is 3500421
+  return [db eval {select bigint_log('356985', 10.0);}]
+} -result 6.544120280630665
+
+
+test bigint_log-2.9 {Verify fails with invalid INTEGER number} -body {
+  db eval {select bigint_log(-34, 10.0);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_log-2.10 {Verify fails with invalid BLOB value} -body {
+  db eval {select bigint_log(X'2A3B4C', 10.0);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_log-2.11 {Verify a valid BLOB value succeeds} -body {
+  # 008EAD is 36525
+  # 0x300030003800450041004400 is 008EAD in utf16
+  return [db eval {select bigint_log(X'300030003800450041004400', 10);}]
+} -result 4.562590224606334
+
+
+db close
+tcltest::cleanupTests

@@ -1,0 +1,99 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the aggregate bigint_total() window function
+#
+#===============================================================================
+ 
+source errors.tcl
+setup db
+
+
+test bigint_total_agg-1.0 {Take the average of a column} -body {
+  set sqlOne {
+    create table t1(value TEXT);
+    insert into t1 values ('47B'), ('9B1'), ('13F'), ('2CA'), ('66C'), ('52A'), 
+      ('8E9'), ('DD7'), ('108'), ('7E'), ('D76'), ('B27'), ('737'), ('C78'), 
+      ('CD3'), ('2D3'), ('625'), ('D86'), ('D37'), ('D78'), ('2D'), ('447'), 
+      ('C14'), ('65C'), ('D45');
+  }
+  db eval $sqlOne
+  return [elem0 [db eval {select bigint_total(value) from t1;}]]
+} -result 0486
+
+
+test bigint_total_agg-1.1 {Verify NULL column values are ignored if any are non-NULL} -body {
+  set sqlTwo {
+    create table t2(value TEXT);
+    insert into t2 values (NULL), ('DC2'), ('51C'), ('6FF'), (NULL), 
+    ('883'), ('EDE'), ('7CC'), (NULL), ('8B6'), ('410'), ('B'), (NULL), 
+    ('1E9'), ('C8A'), ('899'), (NULL), ('DED'), ('DDB'), ('75C'), (NULL), 
+    ('759'), ('8DB'), ('674'), (NULL);
+  }
+  db eval $sqlTwo
+  return [elem0 [db eval {select bigint_total(value) from t2;}]]
+} -result 06A3
+
+
+test bigint_total_agg-1.2 {Verify that a column with only NULL values returns 0} -body {
+  set sqlThree {
+    create table t3(id INTEGER PRIMARY KEY, value TEXT);
+    insert into t3 values (NULL, NULL), (NULL, NULL), (NULL, NULL);
+  }
+  db eval $sqlThree
+  return [elem0 [db eval {select bigint_total(value) from t3;}]]
+} -result 00
+
+
+test bigint_total_agg-1.3 {Verify a parse error on non-numeric column values} -body {
+  set sqlFour {
+    create table t4(value TEXT);
+    insert into t4 values ('7CC'), ('75C'), ('fred');
+  }
+  db eval $sqlFour
+  db eval {select bigint_total(value) from t4;}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_total_agg-1.4 {Verify correct result with zero row count} -body {
+  db eval {drop table if exists t1;
+    create table t1 (a TEXT COLLATE BIGINT);
+    insert into t1 values ('3A'), ('6B'), ('4C'), ('5D'), ('7F');
+  }
+  return [elem0 [db eval {select bigint_total(a) from t1 where a > '00FF';}]]
+} -result 00
+
+
+if {[db version] >= $MinVersionWindow} {
+  test bigint_total_agg-1.5 {Verify that the function works as a window function} -body {
+    set sqlFive {
+      create table t5(x, y);
+      insert into t5 values ('a', '3A'), ('b', '6B'),
+        ('c', '4C'),     ('d', '5D'), ('e', '7E');
+    }
+    db eval $sqlFive
+    set results [db eval {select x, bigint_total(y) over (
+                            order by x rows between 1 preceding and 1 following
+                            ) as avg_y 
+                          from t5 order by x;}]
+    set winRows {00A5 00F1 0114 0127 00DB}
+    set i 0
+    foreach {k j} $results {
+      if {$j ne [lindex $winRows $i]} {puts "test_window failed with i = $i"}
+      incr i;
+    }
+  } -output {} -result {}
+}\
+else {
+  test bigint_total_agg-1.5 {Empty test} -constraints noWindowFuncs -body {
+  } -result {}
+}
+
+
+db close
+tcltest::cleanupTests

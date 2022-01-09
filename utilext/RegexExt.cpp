@@ -27,7 +27,6 @@ namespace UtilityExtensions {
 
   int REX::Regexp(DbStr *pIn,
                   DbStr *pPattern,
-                  bool isWide,
                   int ms,
                   char **zError,
                   int *pResult)
@@ -35,12 +34,12 @@ namespace UtilityExtensions {
     assert(pIn);
     assert(pPattern);
     assert(pResult);
-    int err = RESULT_OK;
+    int rc = RESULT_OK;
     TimeSpan ts = (ms <= 0) ? Regex::InfiniteMatchTimeout
                             : TimeSpan(ms * TimeSpan::TicksPerMillisecond);
 
-    String^ input = Common::GetString(pIn, isWide);
-    String^ pattern = Common::GetString(pPattern, isWide);
+    String^ input = Common::GetString(pIn);
+    String^ pattern = Common::GetString(pPattern);
     bool flag = false;
     try {
       flag = Regex::IsMatch(input, pattern, RegexOptions::None, ts);
@@ -48,12 +47,12 @@ namespace UtilityExtensions {
       return RESULT_OK;
     }
     catch (ArgumentException^ ex) {
-      err = Common::SetString(ex->Message, false, (void**)zError);
-      if (err == RESULT_OK) {
+      rc = Common::SetErrorString(ex->Message, zError);
+      if (rc == RESULT_OK) {
         return ERR_REGEX_PARSE;
       }
       else {
-        return err;
+        return rc;
       }
     }
     catch (RegexMatchTimeoutException^) {
@@ -64,33 +63,32 @@ namespace UtilityExtensions {
   int REX::Regsub(DbStr *pSource,
                   DbStr *pPattern,
                   DbStr *pSub,
-                  bool isWide,
                   int ms,
                   char **zError,
-                  void **ppResult)
+                  DbStr *pResult)
   {
     assert(pSource);
     assert(pPattern);
     assert(pSub);
-    int err = RESULT_OK;
+    int rc = RESULT_OK;
     TimeSpan ts = (ms <= 0) ? Regex::InfiniteMatchTimeout
                             : TimeSpan(ms * TimeSpan::TicksPerMillisecond);
 
-    String^ source = Common::GetString(pSource, isWide);
-    String^ pattern = Common::GetString(pPattern, isWide);
-    String^ sub = Common::GetString(pSub, isWide);
+    String^ source = Common::GetString(pSource);
+    String^ pattern = Common::GetString(pPattern);
+    String^ sub = Common::GetString(pSub);
     String^ result = nullptr;
     try {
       result = Regex::Replace(source, pattern, sub, RegexOptions::None, ts);
-      return Common::SetString(result, isWide, (void**)ppResult);
+      return Common::SetString(result, pSource->isWide, pResult);
     }
     catch (ArgumentException^ ex) {
-      err = Common::SetString(ex->Message, false, (void**)zError);
-      if (err == RESULT_OK) {
+      rc = Common::SetErrorString(ex->Message, zError);
+      if (rc == RESULT_OK) {
         return ERR_REGEX_PARSE;
       }
       else {
-        return err;
+        return rc;
       }
     }
     catch (RegexMatchTimeoutException^) {
@@ -106,24 +104,25 @@ namespace UtilityExtensions {
   {
     assert(pSource);
     assert(pPattern);
-    int err = RESULT_OK;
+    int rc = RESULT_OK;
     TimeSpan ts = (ms <= 0) ? Regex::InfiniteMatchTimeout
                             : TimeSpan(ms * TimeSpan::TicksPerMillisecond);
 
-    String^ source = Common::GetString(pSource, false);
-    String^ pattern = Common::GetString(pPattern, false);
+    // table-valued function text arguments are always retrieved as UTF-8.
+    String^ source = Common::GetString(pSource);
+    String^ pattern = Common::GetString(pPattern);
     array<String^>^ items = nullptr;
     try {
       items = Regex::Split(source, pattern, RegexOptions::None, ts);
       return Common::SetStringArray(items, pResult);
     }
     catch (ArgumentException^ ex) {
-      err = Common::SetString(ex->Message, false, (void**)zError);
-      if (err == RESULT_OK) {
+      rc = Common::SetErrorString(ex->Message, zError);
+      if (rc == RESULT_OK) {
         return ERR_REGEX_PARSE;
       }
       else {
-        return err;
+        return rc;
       }
     }
     catch (RegexMatchTimeoutException^) {

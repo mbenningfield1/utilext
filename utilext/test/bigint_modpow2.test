@@ -1,0 +1,63 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_modpow() function using Utf-16 database encoding
+#
+#===============================================================================  
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_modpow-2.0 {Verify NULL return with 1st arg NULL} -body {
+  return [db eval {select bigint_modpow(NULL, '1AB', '1AB');}]
+} -result NULL
+
+
+test bigint_modpow-2.1 {Verify NULL return with 2nd arg NULL} -body {
+  return [db eval {select bigint_modpow('1ab', NULL, '1AB');}]
+} -result NULL
+
+
+test bigint_modpow-2.2 {Verify NULL return with 3rd arg NULL} -body {
+  return [db eval {select bigint_modpow('1ab', '1ab', NULL);}]
+} -result NULL
+
+
+test bigint_modpow-2.3 {Verify negative exponenet fails} -body {
+  db eval {select bigint_modpow('1ab', 'fd', '03');}
+} -returnCodes 1 -result $SqliteRange
+
+
+test bigint_modpow-2.4 {Verify zero modulus fails} -body {
+  db eval {select bigint_modpow('1ab', '03', '0');}
+} -returnCodes 1 -result $SqliteError
+
+
+test bigint_modpow-2.5 {Verify invalid 1st arg fails} -body {
+  db eval {select bigint_modpow('fred', '03', '04');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_modpow-2.6 {Verify invalid 2nd arg fails} -body {
+  db eval {select bigint_modpow('18', 'fred', '04');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_modpow-2.7 {Verify invalid 3rd arg fails} -body {
+  db eval {select bigint_modpow('18', '03', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_modpow-2.8 {Verify valid result} -body {
+  return [db eval {select bigint_modpow('18', '03', '07');}]
+} -result 06
+
+
+db close
+tcltest::cleanupTests

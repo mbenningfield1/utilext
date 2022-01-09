@@ -1,42 +1,48 @@
 # Utility Extensions (utilext.dll)
 A loadable extension for the SQLite database engine that leverages the .NET
 Framework for native or managed applications that run on Windows. It provides
-functions that support Unicode string handling, Decimal math functions, and
-TimeSpan functions for use with date/time values.
+functions that support Unicode string handling, Decimal and BigInteger math
+functions, and TimeSpan functions for use with date/time values.
 
 ## <span id="toc">Contents</span>
 **[Version Info](#version)**  
 **[Technicalities](#tech)**  
 **[The Decimal Type](#dec)**  
 **[Decimal Functions](#declist)**  
+**[The BigInteger Type](#bigint)**  
+**[BigInteger Functions](#bigintlist)**  
 **[String Handling](#str)**  
 **[String Functions](#strlist)**  
 **[Regular Expressions](#regex)**  
 **[Regular Expression Functions](#regexlist)**  
 **[The TimeSpan Type](#time)**  
 **[TimeSpan Functions](#timelist)**  
+**[Library Functions](#liblist)**  
 **[Testing](#testing)**  
 **[Build Notes](#bld)**  
 
 
-
 ## <span id="version">Version Info</span>
-The file versioning for the utilext.dll library follows the normal Windows file
-versioning scheme: *Major.Minor.Build.Revision*
+The utilext library uses a 4-part versioning scheme in the format
+*Major.Minor.Revision.PatchLevel*. The first 3 elements correspond to the
+semantic versioning used by the SQLite library. 
 
 The first three numbers are kept in sync with the latest version of SQLite that
 the library was tested against. In the event of bug fixes for the utilext.dll
-project, the *Revision* number will reflect incremental changes until the next
-release of the SQLite library, at which point the *Revision* number is reset to
-zero.
+project, the *PatchLevel* number will reflect incremental changes until the next
+release of the SQLite library, at which point the *PatchLevel* number is reset
+to zero.
 
-SQLite added support for window functions in version 3.25.0, and several functions
-in the utilext extension are aggregate window functions. If the version of SQLite
-in use is less than 3.25.0, those functions are registered as normal aggregate
-functions rather than as window functions.
+Upgrades to the latest version of the SQLite library are usually limited to
+the latest SQLite *Minor* version ('3.NN.0'), unless SQLite releases a critical
+patch version, which is incorporated as soon as possible.
 
-#### Current Version: 3.36.0.0 ####
+SQLite added support for window functions in version 3.25.0, and several
+functions in the utilext extension are aggregate window functions. If the
+version of SQLite in use is less than 3.25.0, those functions are registered as
+normal aggregate functions rather than as window functions.
 
+#### Current Version: 3.37.2.0 ####
 
 
 ## <span id="tech">Technicalities</span>
@@ -70,20 +76,72 @@ The SQLite library has no notion of AppDomains, so the extension library must be
 loaded with each connection, or loaded persistently using the provided entry
 point.
 
+#### Notes on data conversion
+You should already be familiar with the flexible type system that SQLite uses.
+If not, you should remedy that shortcoming before trying to use the utilext
+extension library. You can start with
+[Datatypes In SQLite](https://sqlite.org/datatype3.html) and
+[The Advantages Of Flexible Typing](https://sqlite.org/flextypegood.html).
+
+The Decimal and BigInteger 'types' in the utilext extension library are expected
+to be stored as TEXT, in the proper format (Decimal as strings of decimal digits
+with the decimal separator specified by the current culture on the host machine,
+and BigInteger as hexadecimal strings, without any "0x" prefix). If data is
+stored in any other format, SQLite will do it's very best to convert it to TEXT,
+and sometimes the result will be correct. Most of the time, the result will be
+an error raised by one of the extension functions, or it could be a completely
+erroneous and baffling result, with no error returned.
+
+The reason these 'types' are stored as TEXT is so that a custom collation
+sequence can be defined for each one ('decimal' and 'bigint'). For columns that
+are used to store Decimal and BigInteger data, it is highly recommended that the
+appropriate collation sequence be declared on the column. This allows the
+built-in `min()` and `max()` SQL functions to work correctly, along with
+`ORDER BY` clauses and the relational operators ("<", "=", and ">").
+
+Conversely, the TimeSpan 'type' stores values as 64-bit integers. If data is
+presented as TEXT, then SQLite will do it's best to convert the given string
+to an integer value. If SQLite determines that the string does not look like a
+number, it will use 0. While this will allow a given `timespan_XX()` function to
+run to completion without errors, it's odds-on that the result will not be what
+you expect.
+
+
+#### Notes on errors
+When an error is returned by a function in the utilext library, it is one of the
+basic SQLite error codes. With very few exceptions, the error message for that
+error code bears no relation at all to what went wrong with the extension
+function. That's because the extension mechanism for SQLite does not provide a
+way to set an error return code _and_ a unique error message for an extension
+function; it is one or the other. Since the utilext library is intended for use
+by application programmers, it is simpler and more effective to return a defined
+error code, and let the application deal with the messaging. If you use the
+utilext extension functions in the SQLite shell, any resulting errors will of
+course have somewhat baffling error messages.
+
+
+#### Notes on NULL values
+The SQL standard states that NULLs should propagate. However, that sometimes
+leads to results that aren't very useful. Conversely, if you take the approach
+that useful defaults should be used if arguments to a SQL function are NULL,
+the question immediately arises as to what constitutes a useful default. So,
+with very few exceptions, the functions in the utilext library will return NULL
+on NULL inputs.
+
 
 ## <span id="dec">The Decimal Type</span> ##
 The decimal extension functions are wrappers for the methods on the .NET
 Framework `Decimal` data type, so you should bear in mind the particulars and
 limitations of that data type.
 
-The decimal functions provide, in effect, a DECIMAL data type for SQLite. These
-functions are much more intolerant of type mis-matches than is usual for SQLite.
-Calling these functions with data that is not NULL and does not resolve to a
-valid decimal number will usually result in an error. The description of each
-function describes the errors that can result. Data is expected to be stored as
-TEXT and contain only valid numeric strings. Strings are parsed using the
-`System.Globalization.NumberStyles.Any` specifier, so the following are examples
-of valid decimal strings:
+The decimal functions provide a layer of artificial order over the SQLite
+flexible type system. If a provided value is not NULL and does not resolve to
+a suitable value, this usually results in an error being raised. The description
+of each function describes the errors that can result.
+
+Data is expected to be stored as TEXT and contain only valid numeric strings.
+Strings are parsed using the `System.Globalization.NumberStyles.Any` specifier,
+so the following are examples of valid decimal strings:
 
 <table>
   <tr>
@@ -106,38 +164,34 @@ Valid currency symbols depend on the current .NET Culture. Although a currency
 symbol is parsed as valid, storing currency information on an amount column is
 almost invariably a bad idea.
 
-The `dec_min()` and `dec_max()` functions are multi-argument functions, not
-aggregate functions. The built-in SQLite `min()` and `max()` aggregate functions
-will work exactly right if the column that holds the decimal values is defined
-with the 'decimal' collation sequence.
-
 
 ## <span id="declist">Decimal Functions</span>
 
 **Scalar Functions**
 
-- [dec_abs()](#dec_abs)
-- [dec_add()](#dec_add)
-- [dec_avg()](#dec_avg)
-- [dec_ceil()](#dec_ceil)
-- [dec_cmp()](#dec_cmp)
-- [dec_div()](#dec_div)
-- [dec_floor()](#dec_floor)
-- [dec_max()](#dec_max)
-- [dec_min()](#dec_min)
-- [dec_mult()](#dec_mult)
-- [dec_neg()](#dec_neg)
-- [dec_rem()](#dec_rem)
-- [dec_round()](#dec_round)
-- [dec_sub()](#dec_sub)
-- [dec_trunc()](#dec_trunc)
+- [dec_abs](#dec_abs)
+- [dec_add](#dec_add)
+- [dec_avg](#dec_avg)
+- [dec_ceil](#dec_ceil)
+- [dec_cmp](#dec_cmp)
+- [dec_div](#dec_div)
+- [dec_floor](#dec_floor)
+- [dec_log](#dec_log)
+- [dec_log10](#dec_log10)
+- [dec_mult](#dec_mult)
+- [dec_neg](#dec_neg)
+- [dec_pow](#dec_pow)
+- [dec_rem](#dec_rem)
+- [dec_round](#dec_round)
+- [dec_sub](#dec_sub)
+- [dec_trunc](#dec_trunc)
 
 **Aggregate Functions**
 
-- [dec_avg()](#dec_avg_agg)
-- [dec_sum()](#dec_sum_agg)
+- [dec_avg](#dec_avg_agg)
+- [dec_total](#dec_total_agg)
 
-**Collation Sequence**
+**Collation Sequences**
 
 - ['decimal'](#'decimal')
 
@@ -153,19 +207,18 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a TEXT value that represents a decimal number.</td></tr>
-</table
+<tr><td>V</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing the absolute value of `V`.
+Returns the absolute value of `V`.
 
 Returns NULL if `V` is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
-<tr><td>SQLITE_FORMAT</td><td>V is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -179,22 +232,21 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1 </td><td>a TEXT value that represents a decimal number.</td></tr>
-<tr><td>V2 </td><td>a TEXT value that represents a decimal number.</td></tr>
-<tr><td>...</td><td>any number of TEXT values that represent valid decimal numbers, up to the per-connection limit for function arguments.</td></tr>
-</table
+<tr><td>V1 </td><td>A decimal value</td></tr>
+<tr><td>V2 </td><td>A decimal value</td></tr>
+<tr><td>...</td><td>Any number of additional values, up to the per-connection limit for function arguments</td></tr>
+</table>
 
-Returns a string representing the sum of all non-NULL arguments.
+Returns the sum of all non-NULL arguments.
 
 Returns NULL if all arguments are NULL, or if no arguments are specified.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
 <tr><td>SQLITE_TOOBIG</td><td>The result of the operation exceeded the range of a decimal number</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not represent a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -208,21 +260,20 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1 </td><td>a text value that represents a decimal number.</td></tr>
-<tr><td>V2 </td><td>a text value that represents a decimal number.</td></tr>
-<tr><td>...</td><td>any number of text values that represent valid decimal numbers, up to the per-connection limit for function arguments.</td></tr>
-</table
+<tr><td>V1 </td><td>A decimal value</td></tr>
+<tr><td>V2 </td><td>A decimal value</td></tr>
+<tr><td>...</td><td>Any number of additional values, up to the per-connection limit for function arguments</td></tr>
+</table>
 
-Returns the average of all non-NULL arguments as text.
+Returns the average of all non-NULL arguments.
 
-Returns NULL if all arguments are NULL, or if no arguments are specified.
+Returns '0.0' if all arguments are NULL, or if no arguments are specified.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
-<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not represent a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -231,32 +282,28 @@ Errors -
 
 SQL Usage -
 
-    dec_avg(C)
+    dec_avg(V)
 
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>C</td><td>a TEXT column that contains valid decimal numbers</td></tr>
-</table
+<tr><td>V</td><td>A decimal value</td></tr>
+</table>
 
-**Aggregate Window Function:** returns a string representing the average of all
-non-NULL values in the column.
+Returns the average of all non-NULL values in the group.
 
-NOTE: Window functions require SQLite version 3.25.0 or greater. If the
-SQLite version in use is less than 3.25.0, this function is a normal aggregate
-function.
-
-This function will return '0.0' if there are only NULL values in the column.
+This function will return '0.0' if there are only NULL values in the group.
 This behavior diverges from the SQLite `avg()` function.
+
+<b>Aggregate Window Function:</b> Window functions require SQLite version 3.25.0 or greater.
+  If the SQLite version in use is less than 3.25.0, this function is a normal aggregate function.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a valid decimal number</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>Any value is not recognized as a valid decimal number.
-This behavior diverges from the SQLite <i>avg()</i> function.</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_TOOBIG</td><td>The result of the operation exceeded the range of a decimal number</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -270,21 +317,18 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a TEXT value that represents a valid decimal number</td></tr>
-</table
+<tr><td>V</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing the smallest integer that is larger than or
-equal to `V`.
+Returns the smallest integer that is larger than or equal to `V`.
 
 Returns NULL if `V` is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a valid decimal number</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>V is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -298,26 +342,23 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1</td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>V2</td><td>a TEXT value that represents a valid decimal number</td></tr>
-</table
+<tr><td>V1</td><td>A decimal value</td></tr>
+<tr><td>V2</td><td>A decimal value</td></tr>
+</table>
 
-Returns:
+Returns NULL if either argument is NULL. Otherwise, the return value is:
 
 <table style="font-size:smaller">
-<th>Condition</th><th>Return</th>
-<tr><td>V1 > V2</td><td>1</td></tr>
-<tr><td>V1 == V2</td><td>0</td></tr>
-<tr><td>V1 < V2</td><td>-1</td></tr>
-<tr><td>V1 == NULL or V2 == NULL</td><td>NULL</td></tr>
+<tr><td>Comparison result</td><td>Return value</td></tr>
+<tr><td>V1 > V2          </td><td> 1</td></tr>
+<tr><td>V1 == V2         </td><td> 0</td></tr>
+<tr><td>V1 < V2          </td><td>-1</td></tr>
 </table>
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not represent a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid decimal string</td></tr>
 </table>
 
 ----------
@@ -331,23 +372,21 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1</td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>V2</td><td>a TEXT value that represents a valid decimal number</td></tr>
-</table
+<tr><td>V1</td><td>A decimal value</td></tr>
+<tr><td>V2</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing the decimal (mathematical) quotient of dividng
-`V1` by `V2` ( `V1 / V2`).
+Returns the mathematical quotient of ( V1 / V2 ).
 
 Returns NULL if any argument is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a decimal number</td></tr>
-<tr><td>SQLITE_ERROR</td><td>The result is division by zero</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>V1 or V2 is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_TOOBIG</td><td>The result of the operation exceeded the range of a decimal number</td></tr>
+<tr><td>SQLITE_ERROR </td><td>The result is division by zero</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -361,77 +400,80 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a TEXT value that represents a decimal number.</td></tr>
-</table
+<tr><td>V</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing the smallest integer that is less than or equal
-to `V`.
+Returns the smallest integer that is less than or equal to `V`.
 
 Returns NULL if `V` is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a decimal number</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>V does not represent a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
 
-**<span id="dec_max">dec_max()</span>** [[ToC](#toc)]
+**<span id="dec_log">dec_log()</span>** [[ToC](#toc)]
 
 SQL Usage -
 
-    dec_max(V1, V2, ...)
+    dec_log(V)
+    dec_log(V, B)
 
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1 </td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>V2 </td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>...</td><td>any number of TEXT values that represent valid decimal numbers, up to the per-connection limit of the number of function arguments.</td></tr>
-</table
+<tr><td> V</td><td>A decimal value</td></tr>
+<tr><td> B</td><td>A double base value</td></tr>
+</table>
 
-Returns a string representing the maximum value of all non-NULL arguments.
+Returns the base `B` logarithm of `V` as a decimal value accurate to 4
+decimal places, suitable for most financial calculations. If `B` is not
+specified, returns the natural (base e) logarithm of `V`.
 
-Returns NULL if all arguments are NULL, or if no arguments are specified.
+Returns NULL if any argument is NULL.
+
+Returns NULL if the interim logarithm result is "NaN" or "Infinity". This can
+happen for certain values of `V` and `B`. See the documentation for the
+`Math.Log()` method for more information.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
 
-**<span id="dec_min">dec_min()</span>** [[ToC](#toc)]
+**<span id="dec_log10">dec_log10()</span>** [[ToC](#toc)]
 
 SQL Usage -
 
-    dec_min(V1, V2, ...)
+    dec_log10(V)
 
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1 </td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>V2 </td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>...</td><td>any number of TEXT values that represent valid decimal numbers, up to the per-connection limit of the number of function arguments.</td></tr>
-</table
+<tr><td> V</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing the minimum value of all non-NULL arguments.
+Returns the base 10 logarithm of `V` as a decimal value accurate to 4
+decimal places, suitable for most financial calculations.
 
-Returns NULL if all arguments are NULL, or if no arguments are specified.
+Returns NULL if `V` is NULL.
+
+Returns NULL if the interim logarithm result is "NaN" or "Infinity".
+This can happen if `V` is zero or negative.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -445,22 +487,21 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1 </td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>V2 </td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>...</td><td>any number of TEXT values that represent valid decimal numbers, up to the per-connection limit of the number of function arguments.</td></tr>
-</table
+<tr><td>V1 </td><td>A decimal value</td></tr>
+<tr><td>V2 </td><td>A decimal value</td></tr>
+<tr><td>...</td><td>Any number of additional values, up to the per-connection limit for function arguments</td></tr>
+</table>
 
-Returns a string representing the product of all non-NULL arguments.
+Returns the product of all non-NULL arguments.
 
 Returns NULL if all arguments are NULL, or if no arguments are specified.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a decimal number</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_TOOBIG</td><td>The result of the operation exceeded the range of a decimal number</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -474,19 +515,50 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a TEXT value that represents a decimal number.</td></tr>
-</table
+<tr><td>V</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing `V` with the sign reversed.
+Returns `V` with the sign reversed.
 
 Returns NULL if `V` is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_FORMAT</td><td>V is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="dec_pow">dec_pow()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    dec_pow(V, E)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A decimal value</td></tr>
+<tr><td>E</td><td>A double exponent value</td></tr>
+</table>
+
+Returns the result of raising `V` to the power `E` as a decimal value
+accurate to 4 decimal places, suitable for most financial calculations.
+
+Returns NULL if any argument is NULL.
+
+Returns NULL if the interim result is "NaN" or "Infinity", which can happen
+for certain values of `V` and `E`. See the documentation for the `Math.Pow()`
+method for more information.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_TOOBIG</td><td>The result of the operation exceeded the range of a decimal number</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -500,23 +572,21 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1</td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>V2</td><td>a TEXT value that represents a valid decimal number</td></tr>
-</table
+<tr><td>V1</td><td>A decimal value</td></tr>
+<tr><td>V2</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing the decimal remainder of dividing `V1` by `V2`
-(`V1 / V2`).
+Returns the decimal remainder of dividing `V1` by `V2` ( V1 % V2 ).
 
 Returns NULL if any argument is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a decimal number</td></tr>
-<tr><td>SQLITE_ERROR</td><td>The result is division by zero</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>V1 or V2 is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_TOOBIG</td><td>The result of the operation exceeded the range of a decimal number</td></tr>
+<tr><td>SQLITE_ERROR </td><td>The result is division by zero</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -532,33 +602,32 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a TEXT value that represents a decimal number.</td></tr>
-<tr><td>N</td><td>the number of decimal digits to round to.</td></tr>
-<tr><td>M</td><td>the rounding mode to use, either 'even' or 'norm'</td></tr>
-</table
+<tr><td>V</td><td>A decimal value</td></tr>
+<tr><td>N</td><td>Integer number of decimal digits to round to</td></tr>
+<tr><td>M</td><td>The rounding mode to use, either 'even' or 'norm' (any case)</td></tr>
+</table>
 
-Returns a string representing `V` rounded to the specified number of digits,
-using the specified rounding mode. If `N` is not specified, `V` is rounded to
-the appropriate integer. If `M` is not specified, mode 'even' is used. That
-mode is the same as `MidpointRounding.ToEven` (also known as banker's rounding).
-The 'norm' mode is the same as `MidpointRounding.AwayFromZero` (also known as
+Returns `V` rounded to the specified number of digits, using the specified
+rounding mode. If `N` is not specified, `V` is rounded to the appropriate
+integer value. If `M` is not specified, mode 'even' is used. That mode is the
+same as `MidpointRounding.ToEven` (also known as banker's rounding). The
+'norm' mode is the same as `MidpointRounding.AwayFromZero` (also known as
 normal rounding).
 
 Returns NULL if `V` is NULL.
 
-If the data type of `N` is not `INTEGER`, it is converted to an integer using
-SQLite's normal type conversion procedure. That means that if `N` is not a
-sensible integer value, it is converted to 0.
+If the storage format of `N` is not `INTEGER`, it is converted to an integer
+using SQLite's normal type conversion procedure. That means that if `N` is
+not a sensible integer value, it is converted to 0.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a valid decimal number</td></tr>
+<tr><td>SQLITE_TOOBIG  </td><td>The result of the operation exceeded the range of a decimal number</td></tr>
 <tr><td>SQLITE_NOTFOUND</td><td>M is not recognized</td></tr>
-<tr><td>SQLITE_MISUSE</td><td>N is less than zero or greater than 28</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>V is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_MISUSE  </td><td>N is less than zero or greater than 28</td></tr>
+<tr><td>SQLITE_FORMAT  </td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM   </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -572,56 +641,50 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1</td><td>a TEXT value that represents a valid decimal number</td></tr>
-<tr><td>V2</td><td>a TEXT value that represents a valid decimal number</td></tr>
-</table
+<tr><td>V1</td><td>A decimal value</td></tr>
+<tr><td>V2</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing the result of subtracting `V2` from `V1` (`V1 - V2`).
+Returns the difference of subtracting `V2` from `V1` ( V1 - V2 ).
 
 Returns NULL if any argument is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a decimal number</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>V1 or V2 is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_TOOBIG</td><td>The result of the operation exceeded the range of a decimal number</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
 
-**<span id="dec_sum_agg">dec_sum()</span>** [[ToC](#toc)]
+**<span id="dec_total_agg">dec_total()</span>** [[ToC](#toc)]
 
 SQL Usage -
 
-    dec_sum(C)
+    dec_total(V)
 
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>C</td><td>a TEXT column that contains text representations of valid decimal numbers</td></tr>
-</table
+<tr><td>V</td><td>A decimal value</td></tr>
+</table>
 
-**Aggregate Window Function:** returns a string representing the sum of all
-non-NULL values in the column.
+Returns the total of all non-NULL values in the group.
 
-NOTE: Window functions require SQLite version 3.25.0 or greater. If the
-SQLite version in use is less than 3.25.0, this function is a normal aggregate
-function.
+This function will return '0.0' if there are only NULL values in the group.
+This behavior matches the SQLite `total()` function.
 
-This function will return '0.0' if there are only NULL values in the column.
-This behavior diverges from the SQLite `sum()` function and matches the
-SQLite `total()` function.
+<b>Aggregate Window Function:</b> Window functions require SQLite version 3.25.0 or greater.
+  If the SQLite version in use is less than 3.25.0, this function is a normal aggregate function.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The result exceeded the range of a decimal number</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>Any non-NULL value is not a valid decimal number.
-This behavior diverges from both the SQLite `sum()` and `total()` functions.</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_TOOBIG</td><td>The result of the operation exceeded the range of a decimal number</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL value does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -635,19 +698,18 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a TEXT value that represents a decimal number.</td></tr>
-</table
+<tr><td>V</td><td>A decimal value</td></tr>
+</table>
 
-Returns a string representing the integer portion of `V`.
+Returns the integer portion of `V`.
 
 Returns NULL if `V` is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_FORMAT</td><td>V is not a valid decimal number</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid decimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -669,6 +731,750 @@ order. The sort order of invalid values is not guaranteed, but will always be
 the same for the same data. The best thing to do is to not have any invalid
 values in a 'decimal' column.
 
+
+## <span id="bigint">The BigInteger Type</span>
+The big integer extension functions are wrappers for the methods on the .NET
+Framework `BigInteger` type, so you should be mindful of the particulars and
+limitations of that type, especially with regard to the possible performance
+issues.
+
+The bigint functions provide a layer of artificial order over the SQLite
+flexible type system. If a provided value is not NULL and does not resolve to
+a suitable value, this usually results in an error being raised. The description
+of each function describes the errors that can result.
+
+Data is expected to be stored as TEXT and contain only valid hexadecimal strings.
+
+BigInteger values are stored as hexadecimal strings. This provides the best
+compromise in terms of performance and usability. Hexadecimal strings may or
+may not be considered human-readable (depending on your point of view). To
+obtain a decimal representation of a BigInteger value, you can use the
+`bigint_str()` SQL function. These hexadecimal strings are stored without any
+"0x" prefix. The `bigint()` constructor SQL function will accept hexadecimal
+strings with or without the prefix.
+
+
+## <span id="bigintlist">BigInteger Functions</span>
+
+**Scalar Functions**
+
+- [bigint](#bigint)
+- [bigint_abs](#bigint_abs)
+- [bigint_add](#bigint_add)
+- [bigint_and](#bigint_and)
+- [bigint_avg](#bigint_avg)
+- [bigint_cmp](#bigint_cmp)
+- [bigint_div](#bigint_div)
+- [bigint_gcd](#bigint_gcd)
+- [bigint_log](#bigint_log)
+- [bigint_log10](#bigint_log10)
+- [bigint_lsh](#bigint_lsh)
+- [bigint_modpow](#bigint_modpow)
+- [bigint_mult](#bigint_mult)
+- [bigint_neg](#bigint_neg)
+- [bigint_not](#bigint_not)
+- [bigint_or](#bigint_or)
+- [bigint_pow](#bigint_pow)
+- [bigint_rem](#bigint_rem)
+- [bigint_rsh](#bigint_rsh)
+- [bigint_str](#bigint_str)
+- [bigint_sub](#bigint_sub)
+
+**Aggregate Functions**
+
+- [bigint_avg](#bigint_avg_agg)
+- [bigint_total](#bigint_total_agg)
+
+**Collation Sequences**
+
+- ['bigint'](#'bigint')
+
+
+----------
+
+**<span id="bigint">bigint()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint(V)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>a valid numeric value in either TEXT, INTEGER, or REAL format</td></tr>
+</table>
+
+Returns a hexadecimal big integer value equivalent to the input value.
+
+Returns NULL if `V` is NULL.
+
+Data in `TEXT` format is presumed to be a valid numeric string that
+represents an integer or floating-point value. Hexadecimal strings (with or
+without a leading "0x" prefix) are allowed for integer values. Note that
+integer conversion is attempted first. A valid hexadecimal string without a
+leading "0x" prefix and with no hex digits (A-F) will be converted to the
+decimal integer value represented.
+
+This is the only big integer function that permits a "0x" prefix on a
+hexadecimal string, so that the ambiguity described above can be avoided. All
+other big integer extension functions require a hexadecimal string value that
+does not include a "0x" prefix.
+
+REAL values are truncated when converting to a BigInteger. This is the only
+big integer function that permits floating-point values. All other
+big integer extension functions will fail with `SQLITE_FORMAT` if a
+floating-point argument is supplied.
+
+Data in BLOB format is not supported. If `V` is stored in BLOB format, an
+error is raised. All of the other big integer functions will attempt to
+resolve a BLOB value as a hexadecimal string.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V is a TEXT value and is not convertible to a numeric value</td></tr>
+<tr><td>SQLITE_TOOBIG</td><td>V is a REAL value that is not representable, like NaN or ±Inf</td></tr>
+<tr><td>SQLITE_MISUSE</td><td>V is a BLOB value</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="'bigint'">'bigint'</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    COLLATE BIGINT
+
+Sorts big integer data strictly by value.
+
+NULL values are sorted either first or last, depending on the sort order
+defined in the SQL query, such as `ASC NULLS LAST` or just `ASC`.
+
+Non-NULL values that are not valid big integer numbers always sort before
+valid values, so they will be first in ascending order and last in descending
+order. The sort order of invalid values is not guaranteed, but will always be
+the same for the same data. The best thing to do is to not have any invalid
+values in a 'bigint' column.
+
+----------
+
+**<span id="bigint_abs">bigint_abs()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_abs(V)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+</table>
+
+Returns the absolute value of `V`.
+
+Returns NULL if `V` is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_add">bigint_add()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_add(V1, V2, ...)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1 </td><td>A big integer value</td></tr>
+<tr><td>V2 </td><td>A big integer value</td></tr>
+<tr><td>...</td><td>Any number of additional values, up to the per-connection limit for function arguments</td></tr>
+</table>
+
+Returns the sum of all non-NULL arguments.
+
+Returns NULL if all arguments are NULL, or if no arguments are provided.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_and">bigint_and()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_and(V1, V2)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1 </td><td>A big integer value</td></tr>
+<tr><td>V2 </td><td>A big integer value</td></tr>
+</table>
+
+Returns the result of performing a bitwise AND of `V1` with `V2` ( V1 & V2 ).
+
+Returns NULL if either argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_avg">bigint_avg()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_avg(V1, V2, ...)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1 </td><td>A big integer value</td></tr>
+<tr><td>V2 </td><td>A big integer value</td></tr>
+<tr><td>...</td><td>Any number of additional values, up to the per-connection limit for function arguments</td></tr>
+</table>
+
+Returns the average of all non-NULL arguments, rounded to the nearest
+big integer value. The rounding method used is simple rounding (away from 0
+for .5 or greater).
+
+Note that this function returns a big integer value. It does not return a
+`double` value, since any value large enough to justify the use of the
+big integer data type would significantly exceed the precision of a `double`,
+resulting in increasingly inaccurate results as the magnitude of the values
+increases.
+
+Returns '0' if all arguments are NULL, or if no arguments are specified.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_avg_agg">bigint_avg()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_avg(V)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+</table>
+
+Returns the average of all non-NULL values in the group, rounded to the
+nearest big integer value. The rounding method used is simple rounding
+(away from 0 for .5 or greater).
+
+Note that this function returns a big integer value. It does not return a
+`double` value, since any value large enough to justify the use of the
+big integer data type would significantly exceed the precision of a `double`,
+resulting in increasingly inaccurate results as the magnitude of the values
+increases.
+
+This function will return '0' if there are only NULL values in the group.
+This behavior diverges from the SQLite `avg()` function.
+
+<b>Aggregate Window Function:</b> Window functions require SQLite version 3.25.0 or greater.
+  If the SQLite version in use is less than 3.25.0, this function is a normal aggregate function.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_cmp">bigint_cmp()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_cmp(V1, V2)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1</td><td>A big integer value</td></tr>
+<tr><td>V2</td><td>A big integer value</td></tr>
+</table>
+
+Returns NULL if either argument is NULL. Otherwise, the return value is:
+
+<table style="font-size:smaller">
+<tr><td>Comparison result</td><td>Return value</td></tr>
+<tr><td>V1 > V2          </td><td> 1</td></tr>
+<tr><td>V1 == V2         </td><td> 0</td></tr>
+<tr><td>V1 < V2          </td><td>-1</td></tr>
+</table>
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid big integer hexadecimal string</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_div">bigint_div()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_div(V1, V2)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1</td><td>A big integer value</td></tr>
+<tr><td>V2</td><td>A big integer value</td></tr>
+</table>
+
+Returns the mathematical quotient of ( V1 / V2 ).
+
+Returns NULL if any argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_ERROR </td><td>The result is division by zero</td></tr>
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_gcd">bigint_gcd()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_gcd(V1, V2)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1</td><td>A big integer value</td></tr>
+<tr><td>V2</td><td>A big integer value</td></tr>
+</table>
+
+Returns the greatest common divisor of `V1` and `V2`.
+
+Returns NULL if any argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_log">bigint_log()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_log(V)
+    bigint_log(V, B)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+<tr><td>B</td><td>A double base value</td></tr>
+</table>
+
+Returns the base `B` logarithm of `V` as a double-precision floating-point
+value. If `B` is not specified, returns the natural (base e) logarithm of `V`.
+
+Returns NULL if any argument is NULL.
+
+Returns NULL if the logarithm result is "NaN" or "Infinity". This can happen
+for certain values of `V` and `B`. See the documentation for the
+`BigInteger.Log()` method for more information.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_RANGE </td><td>The result exceeds the range of a double value</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_log10">bigint_log10()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_log10(V)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+</table>
+
+Returns the base 10 (common) logarithm of `V` as a double-precision
+floating-point value.
+
+Returns NULL if `V` is NULL.
+
+Returns NULL if the logarithm result is "NaN" or "Infinity".
+This can happen if `V` is zero or negative.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_RANGE </td><td>The result exceeds the range of a double value</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_lsh">bigint_lsh()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_lsh(V)
+    bigint_lsh(V, S)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+<tr><td>S</td><td>The integer number of bits to shift to the left</td></tr>
+</table>
+
+Returns the value of `V` shifted to the left by `S` bits. If `S` is less than
+zero, `V` is right-shifted by `S` bits. ( V << S )
+
+Returns NULL if any argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_modpow">bigint_modpow()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_modpow(V, E, M)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+<tr><td>E</td><td>A big integer exponent</td></tr>
+<tr><td>M</td><td>A big integer modulus</td></tr>
+</table>
+
+Returns the remainder after dividing `V` raised to the power of `E` by
+`M`. ( (V ^ E) % M )
+
+Returns NULL if any argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>Any argument does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_ERROR </td><td>M is equal to zero</td></tr>
+<tr><td>SQLITE_RANGE </td><td>E is less than zero</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_mult">bigint_mult()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_mult(V1, V2, ...)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1 </td><td>A big integer value</td></tr>
+<tr><td>V2 </td><td>A big integer value</td></tr>
+<tr><td>...</td><td>Any number of additional values, up to the per-connection limit for function arguments</td></tr>
+</table>
+
+Returns the product of all non-NULL arguments.
+
+Returns NULL if all arguments are NULL, or if no arguments are specified.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_neg">bigint_neg()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_neg(V)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+</table>
+
+Returns `V` with the sign reversed.
+
+Returns NULL if `V` is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_not">bigint_not()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_not(V)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+</table>
+
+Returns the one's complement of `V` ( ~V ).
+
+Returns NULL if `V` is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_or">bigint_or()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_or(V1, V2)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1 </td><td>A big integer value</td></tr>
+<tr><td>V2 </td><td>A big integer value</td></tr>
+</table>
+
+Returns the result of performing a bitwise OR of `V1` with `V2` ( V1 | V2 ).
+
+Returns NULL if either argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_pow">bigint_pow()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_pow(V, E)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+<tr><td>E</td><td>The positive integer exponent to use</td></tr>
+</table>
+
+Returns the value of `V` raised to the power of `E`.
+
+Returns NULL if any argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_ERROR </td><td>E is less than zero</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_rem">bigint_rem()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_rem(V1, V2)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1</td><td>A big integer value</td></tr>
+<tr><td>V2</td><td>A big integer value</td></tr>
+</table>
+
+Returns the remainder after dividing `V1` by `V2` ( V1 % V2 )
+
+Returns NULL if any argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_ERROR </td><td>V2 is equal to zero</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_rsh">bigint_rsh()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_rsh(V)
+    bigint_rsh(V, S)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+<tr><td>S</td><td>The integer number of bits to shift to the right</td></tr>
+</table>
+
+Returns the value of `V` shifted to the right by `S` bits. If `S` is less
+than zero, `V` is left-shifted by `S` bits. ( V >> S )
+
+Returns NULL if any argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_str">bigint_str()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_str(V)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+</table>
+
+Returns the decimal string representation of `V`.
+
+Returns NULL if `V` is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_sub">bigint_sub()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_sub(V1, V2)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1</td><td>A big integer value</td></tr>
+<tr><td>V2</td><td>A big integer value</td></tr>
+</table>
+
+Returns the difference of ( V1 - V2 ).
+
+Returns NULL if any argument is NULL.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>V1 or V2 does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
+
+----------
+
+**<span id="bigint_total_agg">bigint_total()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    bigint_total(V)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V</td><td>A big integer value</td></tr>
+</table>
+
+Returns the sum of all non-NULL values in the group.
+
+This function will return '0' if there are only NULL values in the group.
+This behavior matches the SQLite `total()` function.
+
+<b>Aggregate Window Function:</b> Window functions require SQLite version 3.25.0 or greater.
+  If the SQLite version in use is less than 3.25.0, this function is a normal aggregate function.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_FORMAT</td><td>Any non-NULL argument does not resolve to a valid big integer hexadecimal string</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
+</table>
 
 
 ## <span id="str">String Handling</span>
@@ -697,23 +1503,23 @@ trial-and-error may be required.
 
 **Scalar Functions**
 
-- [charindex()](#charindex)
-- [charindex_i()](#charindex_i)
-- [exfilter()](#exfilter)
-- [exfilter_i()](#exfilter_i)
-- [infilter()](#infilter)
-- [infilter_i()](#infilter_i)
-- [leftstr()](#leftstr)
-- [like()](#like)
-- [lower()](#lower)
-- [padcenter()](#padcenter)
-- [padleft()](#padleft)
-- [padright()](#padright)
-- [replicate()](#replicate)
-- [reverse()](#reverse)
-- [rightstr()](#rightstr)
-- [str_concat()](#str_concat)
-- [upper()](#upper)
+- [charindex](#charindex)
+- [charindex_i](#charindex_i)
+- [exfilter](#exfilter)
+- [exfilter_i](#exfilter_i)
+- [infilter](#infilter)
+- [infilter_i](#infilter_i)
+- [leftstr](#leftstr)
+- [like](#like)
+- [lower](#lower)
+- [padcenter](#padcenter)
+- [padleft](#padleft)
+- [padright](#padright)
+- [replicate](#replicate)
+- [reverse](#reverse)
+- [rightstr](#rightstr)
+- [str_concat](#str_concat)
+- [upper](#upper)
 
 **Collation Sequences**
 
@@ -722,8 +1528,8 @@ trial-and-error may be required.
 
 **Misc. Functions**
 
-- [set_case_sensitive_like()](#set_case_sensitive_like)
-- [set_culture()](#set_culture)
+- [set_case_sensitive_like](#set_case_sensitive_like)
+- [set_culture](#set_culture)
 
 
 ----------
@@ -738,17 +1544,17 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to search</td></tr>
-<tr><td>P</td><td>the pattern to find in `S`</td></tr>
-<tr><td>I</td><td>the integer 1-based index in `S` to start searching from</td></tr>
-</table
+<tr><td>S</td><td>The string to search</td></tr>
+<tr><td>P</td><td>The pattern to find in `S`</td></tr>
+<tr><td>I</td><td>The integer 1-based index in `S` to start searching from</td></tr>
+</table>
 
 Returns the 1-based index in `S` where the match occurred, or zero
 if no match was found.
 
 Returns NULL if `S` or `P` is NULL.
 
-The comparison is performed in a case-sensitive manner according to the current .NET Framework culture.
+The comparison is performed in a case-insensitive manner according to the current .NET Framework culture.
 
 If `I` is NULL, it is considered absent and the match proceeds from the start
 of `S` (index 1).
@@ -759,7 +1565,6 @@ The 1-based index is used for compatibility with the SQLite `substr()` and
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_RANGE</td><td>I evaluates to less than 1 or greater than the length of S</td></tr>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
@@ -776,10 +1581,10 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to search</td></tr>
-<tr><td>P</td><td>the pattern to find in `S`</td></tr>
-<tr><td>I</td><td>the integer 1-based index in `S` to start searching from</td></tr>
-</table
+<tr><td>S</td><td>The string to search</td></tr>
+<tr><td>P</td><td>The pattern to find in `S`</td></tr>
+<tr><td>I</td><td>The integer 1-based index in `S` to start searching from</td></tr>
+</table>
 
 Returns the 1-based index in `S` where the match occurred, or zero
 if no match was found.
@@ -797,7 +1602,6 @@ The 1-based index is used for compatibility with the SQLite `substr()` and
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_RANGE</td><td>I evaluates to less than 1 or greater than the length of S</td></tr>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
@@ -813,9 +1617,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the source string to filter the characters from</td></tr>
-<tr><td>M</td><td>a string containing the matching characters to remove from `S`</td></tr>
-</table
+<tr><td>S</td><td>The source string to filter the characters from</td></tr>
+<tr><td>M</td><td>A string containing the matching characters to remove from `S`</td></tr>
+</table>
 
 Returns a string that contains only the characters in `S` that are not
 contained in `M`. Any characters in `S` that are also in `M` are
@@ -825,12 +1629,11 @@ Returns NULL if any argument is NULL.
 
 Returns `S` if `M` or `S` is an empty string.
 
-The comparison is performed in a case-sensitive manner according to the current .NET Framework culture.
+The comparison is performed in a case-insensitive manner according to the current .NET Framework culture.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -845,9 +1648,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the source string to filter the characters from</td></tr>
-<tr><td>M</td><td>a string containing the matching characters to remove from `S`</td></tr>
-</table
+<tr><td>S</td><td>The source string to filter the characters from</td></tr>
+<tr><td>M</td><td>A string containing the matching characters to remove from `S`</td></tr>
+</table>
 
 Returns a string that contains only the characters in `S` that are not
 contained in `M`. Any characters in `S` that are also in `M` are
@@ -862,7 +1665,6 @@ The comparison is performed in a case-insensitive manner according to the curren
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -877,9 +1679,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the source string to filter the characters from</td></tr>
-<tr><td>M</td><td>a string containing the matching characters to retain in `S`</td></tr>
-</table
+<tr><td>S</td><td>The source string to filter the characters from</td></tr>
+<tr><td>M</td><td>A string containing the matching characters to retain in `S`</td></tr>
+</table>
 
 Returns a string that contains only the characters in `S` that are also
 contained in `M`. Any characters in `S` that are not contained in
@@ -887,14 +1689,13 @@ contained in `M`. Any characters in `S` that are not contained in
 
 Returns NULL if any argument is NULL.
 
-Returns an emtpy string if `S` or `M` is an empty string.
+Returns an empty string if `S` or `M` is an empty string.
 
-The comparison is performed in a case-sensitive manner according to the current .NET Framework culture.
+The comparison is performed in a case-insensitive manner according to the current .NET Framework culture.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -909,9 +1710,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the source string to filter the characters from</td></tr>
-<tr><td>M</td><td>a string containing the matching characters to retain in `S`</td></tr>
-</table
+<tr><td>S</td><td>The source string to filter the characters from</td></tr>
+<tr><td>M</td><td>A string containing the matching characters to retain in `S`</td></tr>
+</table>
 
 Returns a string that contains only the characters in `S` that are also
 contained in `M`. Any characters in `S` that are not contained in
@@ -919,14 +1720,13 @@ contained in `M`. Any characters in `S` that are not contained in
 
 Returns NULL if any argument is NULL.
 
-Returns an emtpy string if `S` or `M` is an empty string.
+Returns an empty string if `S` or `M` is an empty string.
 
 The comparison is performed in a case-insensitive manner according to the current .NET Framework culture.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -941,9 +1741,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the source string to modify</td></tr>
-<tr><td>N</td><td>the number of characters to retain from `S`</td></tr>
-</table
+<tr><td>S</td><td>The source string to modify</td></tr>
+<tr><td>N</td><td>The number of characters to retain from `S`</td></tr>
+</table>
 
 Returns a string containing the leftmost `N` characters from `S`.
 
@@ -954,9 +1754,8 @@ Returns `S` if `N` is NULL, or if `N` is greater than the length of `S`.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_MISUSE</td><td>N is less than zero</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -965,16 +1764,16 @@ Errors -
 
 SQL Usage -
 
-    like(P,S) { S LIKE P }
-    like(P,S,E) { S LIKE P ESCAPE E }
+    like(P,S)  S LIKE P
+    like(P,S,E)  S LIKE P ESCAPE E
 
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>P</td><td>the like pattern to match</td></tr>
-<tr><td>S</td><td>the string to test against `P`</td></tr>
-<tr><td>E</td><td>an optional escape character for `P`</td></tr>
-</table
+<tr><td>P</td><td>The like pattern to match</td></tr>
+<tr><td>S</td><td>The string to test against `P`</td></tr>
+<tr><td>E</td><td>An optional escape character for `P`</td></tr>
+</table>
 
 Returns true(1) or false(0) for the result of the match.
 
@@ -991,11 +1790,9 @@ symbol is defined and either argument is a BLOB.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_TOOBIG</td><td>The length in bytes of P exceeded the like
-pattern limit defined in SQLite</td></tr>
+<tr><td>SQLITE_TOOBIG</td><td>The length in bytes of P exceeded the like pattern limit for the current connection</td></tr>
 <tr><td>SQLITE_MISUSE</td><td>E resolves to more than 1 Unicode character in length</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1009,8 +1806,8 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to convert</td></tr>
-</table
+<tr><td>S</td><td>The string to convert</td></tr>
+</table>
 
 Returns `S` converted to lower case, using the casing conventions of the
 currently defined .NET Framework culture.
@@ -1020,7 +1817,6 @@ Returns NULL if `S` is NULL.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -1035,9 +1831,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to pad</td></tr>
-<tr><td>N</td><td>the desired total length of the padded string</td></tr>
-</table
+<tr><td>S</td><td>The string to pad</td></tr>
+<tr><td>N</td><td>The desired total length of the padded string</td></tr>
+</table>
 
 Returns a string containing `S` padded with spaces on the left and right
 to equal `N`. If the difference in lengths results in an odd number of
@@ -1052,9 +1848,8 @@ Returns `S` if `N` is NULL, or if `N` is less than the length of `S`.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_MISUSE</td><td>N is less than zero</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1068,9 +1863,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to pad</td></tr>
-<tr><td>N</td><td>the desired total length of the padded string</td></tr>
-</table
+<tr><td>S</td><td>The string to pad</td></tr>
+<tr><td>N</td><td>The desired total length of the padded string</td></tr>
+</table>
 
 Returns a string containing `S` padded with spaces at the beginning to equal
 `N`. If the current .NET Framework culture uses a RTL writing system, the
@@ -1083,9 +1878,8 @@ Returns `S` if `N` is NULL, or if `N` is less than the length of `S`.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_MISUSE</td><td>N is less than zero</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1099,9 +1893,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to pad</td></tr>
-<tr><td>N</td><td>the desired total length of the padded string</td></tr>
-</table
+<tr><td>S</td><td>The string to pad</td></tr>
+<tr><td>N</td><td>The desired total length of the padded string</td></tr>
+</table>
 
 Returns a string containing `S` padded with spaces at the end to equal `N`.
 If the current .NET Framework culture uses a RTL writing system, the spaces
@@ -1114,9 +1908,8 @@ Returns `S` if `N` is NULL, or if `N` is less than the length of `S`.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_MISUSE</td><td>N is less than zero</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1130,9 +1923,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to replicate</td></tr>
-<tr><td>N</td><td>the number of times to repeat `S`</td></tr>
-</table
+<tr><td>S</td><td>The string to replicate</td></tr>
+<tr><td>N</td><td>The number of times to repeat `S`</td></tr>
+</table>
 
 Returns a string that contains `S` repeated `N` times.
 
@@ -1143,9 +1936,8 @@ Returns an empty string if `N` is equal to zero, or if `S` is an empty string.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_MISUSE</td><td>N is less than zero</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1159,8 +1951,8 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to reverse</td></tr>
-</table
+<tr><td>S</td><td>The string to reverse</td></tr>
+</table>
 
 Returns a string containing the characters in `S` in reverse order.
 
@@ -1169,7 +1961,6 @@ Returns NULL if `S` is NULL.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -1184,9 +1975,9 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to modify</td></tr>
-<tr><td>N</td><td>the number of characters to retain from `S`</td></tr>
-</table
+<tr><td>S</td><td>The string to modify</td></tr>
+<tr><td>N</td><td>The number of characters to retain from `S`</td></tr>
+</table>
 
 Returns a string containing the rightmost `N` characters from `S`.
 
@@ -1197,9 +1988,8 @@ Returns `S` if `N` is NULL, or if `N` is greater than the length of `S`.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_MISUSE</td><td>N is less than zero</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1213,17 +2003,17 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>B</td><td>A boolean option to enable case-sensitive like.</td></tr>
-</table
+<tr><td>B</td><td>A boolean option to enable case-sensitive like</td></tr>
+</table>
 
 Returns the previous setting of the case-sensitivity of the `like()`
 function as a boolean integer.
 
+`B` can be 'true'['false'], 'on'['off'], 'yes'['no'], '1'['0'], or 1[0].
+
 Returns NULL if `B` is not recognized.
 
 Returns the current setting if `B` is NULL.
-
-`B` can be 'true'['false'], 'on'['off'], 'yes'['no'], '1'['0'], or 1[0].
 
 ----------
 
@@ -1236,8 +2026,8 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>L</td><td>a recognized NLS locale name or integer LCID</td></tr>
-</table
+<tr><td>L</td><td>A recognized NLS locale name or integer LCID</td></tr>
+</table>
 
 Assigns the specified culture to use and returns the integer LCID of the
 previous culture.
@@ -1261,7 +2051,7 @@ If there is a broad mismatch between the data in the database and the OS
 configuration of the target machine, some trial-and-error will undoubtedly
 be required.
 
-NOTE: The `set_culture()` function is NOT threadsafe. This function is
+NOTE: The `set_culture()` function is NOT thread safe. This function is
 intended to be called once at application start. If this function is called
 on one connection while there are other open connections, the effects on the
 other connections are undefined, and will probably be chaotic.
@@ -1269,10 +2059,8 @@ other connections are undefined, and will probably be chaotic.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_NOTFOUND</td><td>`L` is not a recognized NLS locale name or
-identifier</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOTFOUND</td><td>L is not a recognized NLS locale name or identifier</td></tr>
+<tr><td>SQLITE_NOMEM   </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1286,21 +2074,21 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S  </td><td>the separator string to use</td></tr>
-<tr><td>...</td><td>two or more values (interpreted as text) to be concatenated, up to the per-connection limit for function arguments.</td></tr>
-</table
+<tr><td>S  </td><td>The separator string to use</td></tr>
+<tr><td>...</td><td>Two or more values (interpreted as text) to be concatenated, up to the per-connection limit for function arguments.</td></tr>
+</table>
 
-Returns a string containing all non-NULL values separated by S.
+Returns a string containing all non-NULL values separated by `S`. If `S` is
+NULL, an error is returned. To use an empty string as the separator, specify
+an empty string.
 
 Returns NULL if all supplied values are NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
-<tr><td>SQLITE_MISUSE</td><td>S is NULL, or less than 3 arguments are
-supplied</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_MISUSE</td><td>S is NULL, or less than 3 arguments are supplied</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1314,8 +2102,8 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to convert</td></tr>
-</table
+<tr><td>S</td><td>The string to convert</td></tr>
+</table>
 
 Returns `S` converted to upper case, using the casing conventions of the
 currently defined .NET Framework culture.
@@ -1325,7 +2113,6 @@ Returns NULL if `S` is NULL.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -1337,10 +2124,9 @@ SQL Usage -
 
     COLLATE UTF
 
-Performs a sort-order comparison according the Unicode casing rules defined
-on the current .NET Framework culture.
+Performs a sort-order comparison according to the currently-defined culture.
 
-The comparison is performed in a case-sensitive manner according to the current .NET Framework culture.
+The comparison is performed in a case-insensitive manner according to the current .NET Framework culture.
 
 ----------
 
@@ -1350,8 +2136,7 @@ SQL Usage -
 
     COLLATE UTF_I
 
-Performs a sort-order comparison according the Unicode casing rules defined
-on the current .NET Framework culture.
+Performs a sort-order comparison according to the currently-defined culture.
 
 The comparison is performed in a case-insensitive manner according to the current .NET Framework culture.
 
@@ -1382,30 +2167,30 @@ must be called explicitly; it does not affect the `REGEXP` operator.
 
 **Scalar Functions**
 
-- [regexp()](#regexp)
-- [regsub()](#regsub)
+- [regexp](#regexp)
+- [regsub](#regsub)
 
 **Table-Valued Functions**
 
-- [regsplit()](#regsplit)
+- [regsplit](#regsplit)
 
 
 ----------
 
-**<span id="regexp">regexp()</span>** [[Toc](#toc)]
+**<span id="regexp">regexp()</span>** [[ToC](#toc)]
 
 SQL Usage -
 
-    regexp(P, S) { S REGEXP P }
-    regexp(P, S, T) { no equivalent operator }
+    regexp(P, S)  S REGEXP P
+    regexp(P, S, T)  no equivalent operator
 
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>P</td><td>the regex pattern used for the match</td></tr>
-<tr><td>S</td><td>the string to test for a match</td></tr>
-<tr><td>T</td><td>the timeout interval in milliseconds for the regular expression</td></tr>
-</table
+<tr><td>P</td><td>The regex pattern used for the match</td></tr>
+<tr><td>S</td><td>The string to test for a match</td></tr>
+<tr><td>T</td><td>The timeout interval in milliseconds for the regular expression</td></tr>
+</table>
 
 Returns true (non-zero) if the string matches the regex; false (zero) if not.
 
@@ -1423,16 +2208,14 @@ with inline options.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_ABORT</td><td>The regex operation exceeded an alloted timeout interval</td></tr>
-<tr><td>SQLITE_ERROR</td><td>There was an error parsing the regex pattern. Call <i>sqlite3_errmsg()</i>
-to retrieve the parse error message.</td></tr>
+<tr><td>SQLITE_ERROR</td><td>There were not enough arguments supplied to the function, or there was an error parsing the regex pattern. Call <i>sqlite3_errmsg()</i> to retrieve the error message</td></tr>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
 
-**<span id="regsplit">regsplit()</span>** [[Toc](#toc)]
+**<span id="regsplit">regsplit()</span>** [[ToC](#toc)]
 
 SQL Usage -
 
@@ -1442,10 +2225,10 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the source string to split</td></tr>
-<tr><td>P</td><td>the regular expression pattern</td></tr>
-<tr><td>T</td><td>the timeout in milliseconds for the regular expression</td></tr>
-</table
+<tr><td>S</td><td>The source string to split</td></tr>
+<tr><td>P</td><td>The regular expression pattern</td></tr>
+<tr><td>T</td><td>The timeout in milliseconds for the regular expression</td></tr>
+</table>
 
 Returns one row for each substring that results from splitting `S` based
 on `P`:
@@ -1464,24 +2247,17 @@ This function is a wrapper for the
 default options are `RegexOptions.None`, but can be overridden to some extent
 with inline options.
 
-This function is really only legitimately useful in a very narrow range of
-circumstances. It should not be used to store structured data in lieu of
-proper database normalization.
-
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_ABORT</td><td>The regex operation exceeded an alloted timeout interval</td></tr>
-<tr><td>SQLITE_ERROR</td><td>There were not enough arguments supplied to the
-function, or there was an error parsing the regex pattern. Call <i>sqlite3_errmsg()</i>
-to retrieve the error message.</td></tr>
+<tr><td>SQLITE_ERROR</td><td>There were not enough arguments supplied to the function or there was an error parsing the regex pattern. Call <i>sqlite3_errmsg()</i> to retrieve the error message</td></tr>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
 
-**<span id="regsub">regsub()</span>** [[Toc](#toc)]
+**<span id="regsub">regsub()</span>** [[ToC](#toc)]
 
 SQL Usage -
 
@@ -1491,11 +2267,11 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>S</td><td>the string to test for a match</td></tr>
-<tr><td>P</td><td>the regular expression pattern</td></tr>
-<tr><td>R</td><td>the replacement text to use</td></tr>
-<tr><td>T</td><td>the timeout in milliseconds for the regular expression</td></tr>
-</table
+<tr><td>S</td><td>The string to test for a match</td></tr>
+<tr><td>P</td><td>The regular expression pattern</td></tr>
+<tr><td>R</td><td>The replacement text to use</td></tr>
+<tr><td>T</td><td>The timeout in milliseconds for the regular expression</td></tr>
+</table>
 
 Returns a string with all of the matches in `S` replaced by `R`. If there
 are no matches, then `S` is returned.
@@ -1517,10 +2293,8 @@ extent with inline options.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error</th><th>Condition</th>
 <tr><td>SQLITE_ABORT</td><td>The regex operation exceeded an alloted timeout interval</td></tr>
-<tr><td>SQLITE_ERROR</td><td>There was an error parsing the regex pattern. Call <i>sqlite3_errmsg()</i>
-to retrieve the parse error message.</td></tr>
+<tr><td>SQLITE_ERROR</td><td>There were not enough arguments supplied to the function, or there was an error parsing the regex pattern. Call <i>sqlite3_errmsg()</i> to retrieve the error message</td></tr>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -1563,19 +2337,20 @@ are out-of-range for the `DateTime` .NET Framework type.
 
 **Scalar Functions**
 
-- [timespan()](#timespan)
-- [timespan_add()](#timespan_add)
-- [timespan_addto()](#timespan_addto)
-- [timespan_cmp()](#timespan_cmp)
-- [timespan_diff()](#timespan_diff)
-- [timespan_neg()](#timespan_neg)
-- [timespan_str()](#timespan_str)
-- [timespan_sub()](#timespan_sub)
+- [timespan](#timespan)
+- [timespan_add](#timespan_add)
+- [timespan_addto](#timespan_addto)
+- [timespan_avg](#timespan_avg)
+- [timespan_cmp](#timespan_cmp)
+- [timespan_diff](#timespan_diff)
+- [timespan_neg](#timespan_neg)
+- [timespan_str](#timespan_str)
+- [timespan_sub](#timespan_sub)
 
 **Aggregate Functions**
 
-- [timespan_avg()](#timespan_avg_agg)
-- [timespan_total()](#timespan_total_agg)
+- [timespan_avg](#timespan_avg_agg)
+- [timespan_total](#timespan_total_agg)
 
 
 ----------
@@ -1592,38 +2367,38 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a valid time value in either TEXT, INTEGER, or REAL format</td></tr>
+<tr><td>V</td><td>A valid time value in either TEXT, INTEGER, or REAL format</td></tr>
 <tr><td>D</td><td>32-bit signed integer number of days</td></tr>
 <tr><td>H</td><td>32-bit signed integer number of hours</td></tr>
 <tr><td>M</td><td>32-bit signed integer number of minutes</td></tr>
 <tr><td>S</td><td>32-bit signed integer number of seconds</td></tr>
 <tr><td>F</td><td>32-bit signed integer number of milliseconds</td></tr>
-</table
+</table>
 
-Returns a 64-bit signed integer TimeSpan.
+Returns a 64-bit signed integer timespan.
 
 Returns NULL if any argument is NULL.
 
 Data in `TEXT` format is presumed to be a `TimeSpan` string in the format
-`[-][d.]hh:mm:ss[.fffffff]`; data in `INTEGER` format is presumed to be a
-number of whole seconds, similar to a Unix time; data in `REAL` format is
-presumed to be a floating-point fractional number of days, similar to a
-Julian day value.
+`[-][d.]hh:mm:ss[.fffffff]`. See the documentation for the .NET Framework
+`TimeSpan.Parse()` method for information on proper formatting.
 
-Note that data in any format, as a `TimeSpan` value, is not relative to any
+Data in `INTEGER` format is presumed to be a number of whole seconds, similar
+to a Unix time.
+
+Data in `REAL` format is presumed to be a floating-point fractional number of
+days, similar to a Julian day value.
+
+Note that data in any format, as a timespan value, is not relative to any
 particular date/time origin.
-
-If the data is in `TEXT` format, the data must properly formatted according to
-the documentation for the .NET Framework `TimeSpan.Parse()` method.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
 <tr><td>SQLITE_MISMATCH</td><td>V is a BLOB value</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>V is a TEXT value and is not in the proper format</td></tr>
-<tr><td>SQLITE_RANGE</td><td>The result would be out of range for a TimeSpan value</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_FORMAT  </td><td>V is a TEXT value and is not in the proper format</td></tr>
+<tr><td>SQLITE_RANGE   </td><td>The result is out of range for a timespan value</td></tr>
+<tr><td>SQLITE_NOMEM   </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1637,21 +2412,20 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1 </td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-<tr><td>V2 </td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-<tr><td>...</td><td>any number of 64-bit signed integer TimeSpan values, up to the per-connection limit for function arguments.</td></tr>
-</table
+<tr><td>V1 </td><td>A 64-bit signed integer timespan value</td></tr>
+<tr><td>V2 </td><td>A 64-bit signed integer timespan value</td></tr>
+<tr><td>...</td><td>Any number of additional values, up to the per-connection limit for function arguments</td></tr>
+</table>
 
-Returns the sum of all non-NULL arguments as a 64-bit signed integer `TimeSpan`.
+Returns the sum of all non-NULL arguments.
 
 Returns NULL if all arguments are NULL, or if no arguments are specified.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
 <tr><td>SQLITE_TOOBIG</td><td>The operation resulted in signed integer overflow</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1665,34 +2439,66 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>D</td><td>a valid date/time value in either TEXT, INTEGER, or REAL format</td></tr>
-<tr><td>V</td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-</table
+<tr><td>D</td><td>A valid date/time value in either TEXT, INTEGER, or REAL format</td></tr>
+<tr><td>V</td><td>A 64-bit signed integer timespan value</td></tr>
+</table>
 
-Returns a date/time value with the time span `V` added to `D`, in the same
+Returns a date/time value with the timespan `V` added to `D`, in the same
 format as `D`.
 
 Returns NULL if any argument is NULL.
 
-If `D` is in `TEXT` format, it is presumed to be a string representation of
+If `D` is in TEXT format, it is presumed to be a string representation of
 a valid .NET Framework `DateTime` value, parsable according to the current
 culture on the host machine. ISO-8601 format is recommended for date/times
-stored as `TEXT`.
+stored as TEXT.
 
-If `D` is in `INTEGER` format, it is presumed to be a Unix timestamp -- in
+If `D` is in INTEGER format, it is presumed to be a Unix timestamp -- in
 whole seconds -- that represents a valid .NET Framework `DateTime` value.
 
-If `D` is in `REAL` format, it is presumed to be a Julian day value that
+If `D` is in REAL format, it is presumed to be a Julian day value that
 represents a valid .NET Framework `DateTime` value.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
 <tr><td>SQLITE_MISMATCH</td><td>D is a BLOB value</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>D is a TEXT value and is not in the proper format</td></tr>
-<tr><td>SQLITE_RANGE</td><td>The result would be out of range for a TimeSpan value</td></tr>
-<tr><td>SQLITE_ERROR</td><td>D is an invalid Unix time or Julian day value</td></tr>
+<tr><td>SQLITE_FORMAT  </td><td>D is a TEXT value and is not in the proper format</td></tr>
+<tr><td>SQLITE_RANGE   </td><td>The result is out of range for a timespan value</td></tr>
+<tr><td>SQLITE_ERROR   </td><td>D is an invalid Unix time or Julian day value</td></tr>
+</table>
+
+----------
+
+**<span id="timespan_avg">timespan_avg()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    timespan_avg(V1, V2, ...)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>V1 </td><td>A 64-bit signed integer timespan value</td></tr>
+<tr><td>V2 </td><td>A 64-bit signed integer timespan value</td></tr>
+<tr><td>...</td><td>Any number of additional values, up to the per-connection limit for function arguments</td></tr>
+</table>
+
+Returns the integer average of all non-NULL arguments.
+
+Returns 0 if all arguments are NULL, or if no arguments are specified.
+
+Note that the return value of this function is an integer. A timespan value
+is defined as an integral number of ticks, so a fractional result would be
+meaningless. Besides, the resolution of a .NET `TimeSpan` is in
+100-nanosecond ticks, so integer division will result in a fairly precise
+value.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_TOOBIG</td><td>The operation resulted in signed integer overflow</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1701,35 +2507,33 @@ Errors -
 
 SQL Usage -
 
-    timespan_avg(C)
+    timespan_avg(V)
 
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>C</td><td>an INTEGER column that contains 64-bit signed integer TimeSpan values.</td></tr>
-</table
+<tr><td>V</td><td>A 64-bit signed integer timespan value</td></tr>
+</table>
 
-**Aggregate Window Function:** returns the average TimeSpan of all non-NULL
-values in the column.
+Returns the average timespan of all non-NULL values in the group.
 
-NOTE: Window functions require SQLite version 3.25.0 or greater. If the
-SQLite version in use is less than 3.25.0, this function is a normal aggregate
-function.
-
-This function will return 0 if there are only NULL values in the column. This
+This function will return 0 if there are only NULL values in the group. This
 behavior diverges from the SQLite `avg()` function.
 
-Note that the return value of this function is an integer. A TimeSpan value
+Note that the return value of this function is an integer. A timespan value
 is defined as an integral number of ticks, so a fractional result would be
-meaningless. Besides, the resolution of a TimeSpan is in 100-nanosecond
-ticks, so integer division will result in a fairly precise value.
+meaningless. Besides, the resolution of a .NET `TimeSpan` is in
+100-nanosecond ticks, so integer division will result in a fairly precise
+value.
+
+<b>Aggregate Window Function:</b> Window functions require SQLite version 3.25.0 or greater.
+  If the SQLite version in use is less than 3.25.0, this function is a normal aggregate function.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
 <tr><td>SQLITE_TOOBIG</td><td>The operation resulted in signed integer overflow</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1743,18 +2547,23 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1</td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-<tr><td>V2</td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-</table
+<tr><td>V1</td><td>A 64-bit signed integer timespan value</td></tr>
+<tr><td>V2</td><td>A 64-bit signed integer timespan value</td></tr>
+</table>
 
-Returns:
+Returns NULL if either argument is NULL. Otherwise, the return value is:
 
 <table style="font-size:smaller">
-<th>Condition</th><th>Return</th>
-<tr><td>V1 > V2</td><td>1</td></tr>
-<tr><td>V1 == V2</td><td>0</td></tr>
-<tr><td>V1 < V2</td><td>-1</td></tr>
-<tr><td>V1 == NULL or V2 == NULL</td><td>NULL</td></tr>
+<tr><td>Comparison result</td><td>Return value</td></tr>
+<tr><td>V1 > V2          </td><td> 1</td></tr>
+<tr><td>V1 == V2         </td><td> 0</td></tr>
+<tr><td>V1 < V2          </td><td>-1</td></tr>
+</table>
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1768,38 +2577,37 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>D1</td><td>a valid date/time value in either TEXT, INTEGER, or REAL format</td></tr>
-<tr><td>D2</td><td>a valid date/time value in either TEXT, INTEGER, or REAL format</td></tr>
-</table
+<tr><td>D1</td><td>A valid date/time value in either TEXT, INTEGER, or REAL format</td></tr>
+<tr><td>D2</td><td>A valid date/time value in either TEXT, INTEGER, or REAL format</td></tr>
+</table>
 
-Returns a 64-bit signed integer TimeSpan value that is the result of
+Returns a 64-bit signed integer timespan value that is the result of
 subtracting `D2` from `D1`.
 
 Returns NULL if any argument is NULL.
 
 The result will be negative if `D1` is earlier in time than `D2`.
 
-If data is in `TEXT` format, it is presumed to be a string representation of
+If data is in TEXT format, it is presumed to be a string representation of
 a valid .NET Framework `DateTime` value, parsable according to the current
 culture on the host machine. ISO-8601 format is recommended for date/times
-stored as `TEXT`.
+stored as TEXT.
 
-If data is in `INTEGER` format, it is presumed to be a Unix timestamp -- in
+If both `D1` and `D2` are TEXT, the text encoding is presumed to be the same
+for both values. If not, the result is undefined.
+
+If data is in INTEGER format, it is presumed to be a Unix timestamp -- in
 whole seconds -- that represents a valid .NET Framework `DateTime` value.
 
-If data is in `REAL` format, it is presumed to be a Julian day value that
+If data is in REAL format, it is presumed to be a Julian day value that
 represents a valid .NET Framework `DateTime` value.
-
-If both `D1` and `D2` are `TEXT`, the text encoding is presumed to be the same
-for both values. If not, the result is undefined.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
-<tr><td>SQLITE_MISMATCH</td><td>D1 or D2 is a BLOB</td></tr>
-<tr><td>SQLITE_ERROR</td><td>D1 or D2 is an invalid Unix time or Julian day value</td></tr>
-<tr><td>SQLITE_FORMAT</td><td>D1 or D2 is a TEXT value and is not in the proper format</td></tr>
+<tr><td>SQLITE_MISMATCH</td><td>D1 or D2 is a BLOB value</td></tr>
+<tr><td>SQLITE_FORMAT  </td><td>D1 or D2 is a TEXT value and is not in the proper format</td></tr>
+<tr><td>SQLITE_ERROR   </td><td>D1 or D2 is an invalid Unix time or Julian day value</td></tr>
 </table>
 
 ----------
@@ -1813,13 +2621,20 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-</table
+<tr><td>V</td><td>A 64-bit signed integer timespan value</td></tr>
+</table>
 
 Returns `V` with the sign reversed.
 
-Returns NULL if `V` is NULL. If `V` is equal to `TimeSpan.MinValue`, then
-`TimeSpan.MaxValue` is returned.
+Returns NULL if `V` is NULL.
+
+If `V` is equal to `TimeSpan.MinValue`, then `TimeSpan.MaxValue` is returned.
+
+Errors -
+
+<table style="font-size:smaller">
+<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+</table>
 
 ----------
 
@@ -1832,8 +2647,8 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V</td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-</table
+<tr><td>V</td><td>A 64-bit signed integer timespan value</td></tr>
+</table>
 
 Returns a string in the format `[-][d.]hh:mm:ss[.fffffff]`
 
@@ -1842,7 +2657,6 @@ Returns NULL if `V` is NULL.
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
 <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
 </table>
 
@@ -1857,20 +2671,19 @@ SQL Usage -
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>V1</td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-<tr><td>V2</td><td>a 64-bit signed integer TimeSpan value.</td></tr>
-</table
+<tr><td>V1</td><td>A 64-bit signed integer timespan value</td></tr>
+<tr><td>V2</td><td>A 64-bit signed integer timespan value</td></tr>
+</table>
 
-Returns the difference of `V1` and `V2` as a 64-bit signed integer TimeSpan.
+Returns the difference of `V1` and `V2` ( 'V1 - V2` ).
 
 Returns NULL if any argument is NULL.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
 <tr><td>SQLITE_TOOBIG</td><td>The operation resulted in signed integer overflow</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
 
 ----------
@@ -1879,31 +2692,58 @@ Errors -
 
 SQL Usage -
 
-    timespan_total(C)
+    timespan_total(V)
 
 Parameters -
 
 <table style="font-size:smaller">
-<tr><td>C</td><td>an INTEGER column that contains 64-bit signed integer TimeSpan values.</td></tr>
-</table
+<tr><td>V</td><td>A 64-bit signed integer timespan value</td></tr>
+</table>
 
-**Aggregate Window Function:** returns the sum of all non-NULL values in the
-column.
+Returns the total of all non-NULL values in the group.
 
-NOTE: Window functions require SQLite version 3.25.0 or greater. If the
-SQLite version in use is less than 3.25.0, this function is a normal aggregate
-function.
-
-This function will return 0 if the column contains only NULL values. This
+This function will return 0 if the group contains only NULL values. This
 behavior matches the SQLite `total()` function.
+
+<b>Aggregate Window Function:</b> Window functions require SQLite version 3.25.0 or greater.
+  If the SQLite version in use is less than 3.25.0, this function is a normal aggregate function.
 
 Errors -
 
 <table style="font-size:smaller">
-<th>Error Code</th><th>Condition</th>
 <tr><td>SQLITE_TOOBIG</td><td>The operation resulted in signed integer overflow</td></tr>
-<tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
+<tr><td>SQLITE_NOMEM </td><td>Memory allocation failed</td></tr>
 </table>
+
+
+## <span id="liblist">Library Functions</span>
+
+**Misc. Functions**
+
+- [util_capable](#util_capable)
+
+
+----------
+
+**<span id="util_capable">util_capable()</span>** [[ToC](#toc)]
+
+SQL Usage -
+
+    util_capable(Z)
+
+Parameters -
+
+<table style="font-size:smaller">
+<tr><td>Z</td><td>The name of a function category to check</td></tr>
+</table>
+
+Returns true (non-zero) if the utilext library was compiled to provide the
+functions in the specified category, or false (zero) if not.
+
+Returns NULL if `Z` is NULL or not recognized.
+
+The possible values for `Z` are: 'string', 'decimal', 'bigint', 'regex',
+'timespan', and 'like' (in any character casing).
 
 
 ## <span id="testing">Testing</span>
@@ -1940,7 +2780,7 @@ space in the final library. They are:
 <table style="font-size:smaller">
   <tr>
     <td>UTILEXT_OMIT_DECIMAL</td>
-    <td>Omits the DECIMAL functions and collation sequence</td>
+    <td>Omits the Decimal functions and collation sequence</td>
   </tr>
   <tr>
     <td>UTILEXT_OMIT_REGEX</td>
@@ -1958,6 +2798,10 @@ space in the final library. They are:
   <tr>
     <td>UTILEXT_OMIT_TIME</td>
     <td>Omits the TimeSpan functions</td>
+  </tr>
+  <tr>
+    <td>UTILEXT_OMIT_BIGINT</td>
+    <td>Omits the BigInteger functions and collation sequence</td>
   </tr>
 </table>
 
@@ -1979,6 +2823,6 @@ None of the functions are decorated with the `SQLITE_INNOCUOUS` function flag,
 and if you change this, you do so at your own risk.
 
 In the `tools` folder, the `makeDoc.tcl` script is used to generate the
-`UtilityExtension.md` markdown file for the project. See the comments in that
+`README.md` markdown file for the project. See the comments in that
 file and others for more information.
 

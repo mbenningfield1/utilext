@@ -1,0 +1,64 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_rsh() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test bigint_rsh-1.0 {Verify NULL return with NULL value arg} -body {
+  return [db eval {select bigint_rsh(NULL, 3);}]
+} -result NULL
+
+
+test bigint_rsh-1.1 {Verify NULL return with NULL shift arg} -body {
+  return [db eval {select bigint_rsh('197B', NULL);}]
+} -result NULL
+
+
+test bigint_rsh-1.2 {Verify valid INTEGER value succeeds} -body {
+  return [db eval {select bigint_rsh(6325, 2);}]
+} -result 18C9
+
+
+test bigint_rsh-1.3 {Verify invalid INTEGER value fails} -body {
+  db eval {select bigint_rsh(-34, 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_rsh-1.4 {Verify REAL arg fails} -body {
+  db eval {select bigint_rsh(34.5, 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_rsh-1.5 {Verify valid BLOB value succeeds} -body {
+  # 0x434238 is CB8 in utf8
+  return [db eval {select bigint_rsh(X'434238', 3);}]
+} -result 97
+
+
+test bigint_rsh-1.6 {Verify invalid BLOB value fails} -body {
+  db eval {select bigint_rsh(X'2a3b4c', 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_rsh-1.7 {Verify invalid TEXT value fails} -body {
+  db eval {select bigint_rsh('fred', 3);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_rsh-1.8 {Verify valid hex value} -body {
+  return [db eval {select bigint_rsh('CB8', 3);}]
+} -result 97
+
+
+db close
+tcltest::cleanupTests

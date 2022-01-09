@@ -1,0 +1,73 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the 'utf_i' collation sequence
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+db eval {create table t1 (name TEXT COLLATE UTF_I);
+         insert into t1 values ('John'), ('paul'), ('George'), ('ringo');}
+                               
+db eval {create table t2 (name TEXT COLLATE UTF_I);
+         insert into t2 values ('John'), ('Paul'), ('George'), ('Ringo'),
+                               ('john'), ('paul'), ('george'), ('ringo');}
+
+
+test utf_collate-3.0 {Verify ascending order sort} -body {
+  set results [list George John paul ringo]
+  set a [db eval {select name from t1 order by name;}]
+  return [listEquals $results $a]
+} -result {1}
+
+
+test utf_collate-3.1 {Verify descending order sort} -body {
+  set results [list ringo paul John George]
+  set a [db eval {select name from t1 order by name desc;}]
+  return [listEquals $results $a]
+} -result {1}
+
+
+test utf_collate-3.2 {Verify case-insensitive ascending order sort} -body {
+  set results [list George george John john Paul paul Ringo ringo]
+  set a [db eval {select name from t2 order by name;}]
+  return [listEquals $results $a]
+} -result {1}
+
+
+test utf_collate-3.3 {Verify case-insensitive descending order sort} -body {
+  set results [list Ringo ringo Paul paul John john George george]
+  set a [db eval {select name from t2 order by name desc;}]
+  return [listEquals $results $a]
+} -result {1}
+
+
+test utf_collate-3.4 {Verify case-insensitive ascending sort with unicode chars} -body {
+  setup_unicode8 pdb
+  set results [list 1 6 11 2 7 12 3 8 13 4 9 14 5 10 15 ]
+  set a [pdb eval {select id from test_collate_utf_i order by name;}]
+  pdb close;
+  return [listEquals $results $a]
+} -result {1}
+
+
+test utf_collate-3.5 {Verify case-insensitive descending sort with unicode chars} -body {
+  setup_unicode8 pdb
+  set results [list 5 10 15 4 9 14 3 8 13 2 7 12 1 6 11]
+  set a [pdb eval {select id from test_collate_utf_i order by name desc;}]
+  pdb close
+  return [listEquals $results $a]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests
+

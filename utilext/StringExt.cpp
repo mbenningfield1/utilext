@@ -40,7 +40,6 @@ namespace UtilityExtensions {
   int EXT::CharIndex(DbStr *pIn,
                      DbStr *pPattern,
                      int index,
-                     bool isWide,
                      bool noCase,
                      int *pResult)
   {
@@ -48,8 +47,8 @@ namespace UtilityExtensions {
     assert(index > 0); // should start out greater than zero
 
     index--; // adjust back to zero-based index
-    String^ source = Common::GetString(pIn, isWide);
-    String^ pattern = Common::GetString(pPattern, isWide);
+    String^ source = Common::GetString(pIn);
+    String^ pattern = Common::GetString(pPattern);
     StringInfo^ srcInfo = gcnew StringInfo(source);
     CompareOptions opt = noCase ? CompareOptions::IgnoreCase :
                                   CompareOptions::None;
@@ -84,21 +83,16 @@ namespace UtilityExtensions {
     return RESULT_OK;
   }
     
-  int EXT::ExFilter(DbStr *pIn,
-                    DbStr *pMatch,
-                    bool isWide,
-                    bool noCase,
-                    void **ppResult)
-  {
+  int EXT::ExFilter(DbStr *pIn, DbStr *pMatch, bool noCase, DbStr *pResult) {
     StringBuilder^ sb = nullptr;
     String^ result = nullptr;
-    String^ input = Common::GetString(pIn, isWide);
-    String^ match = Common::GetString(pMatch, isWide);
+    String^ input = Common::GetString(pIn);
+    String^ match = Common::GetString(pMatch);
     if (input->Length == 0) {
-      return Common::SetString("", isWide, ppResult);
+      return Common::SetString("", pIn->isWide, pResult);
     }
     if (match->Length == 0) {
-      return Common::SetString(input, isWide, ppResult);
+      return Common::SetString(input, pIn->isWide, pResult);
     }
     sb = gcnew StringBuilder(input->Length);
     StringInfo^ srcInfo = gcnew StringInfo(input);
@@ -134,21 +128,16 @@ namespace UtilityExtensions {
       }
     }
     result = sb->ToString();
-    return Common::SetString(result, isWide, ppResult);
+    return Common::SetString(result, pIn->isWide, pResult);
   }
 
-  int EXT::InFilter(DbStr *pIn,
-                    DbStr *pMatch,
-                    bool isWide,
-                    bool noCase,
-                    void **ppResult)
-  {
+  int EXT::InFilter(DbStr *pIn, DbStr *pMatch, bool noCase, DbStr *pResult) {
     StringBuilder^ sb = nullptr;
     String^ result = nullptr;
-    String^ input = Common::GetString(pIn, isWide);
-    String^ match = Common::GetString(pMatch, isWide);
+    String^ input = Common::GetString(pIn);
+    String^ match = Common::GetString(pMatch);
     if ((input->Length == 0) || (match->Length == 0)) {
-      return Common::SetString("", isWide, ppResult);
+      return Common::SetString("", pIn->isWide, pResult);
     }
     sb = gcnew StringBuilder(input->Length);
     StringInfo^ srcInfo = gcnew StringInfo(input);
@@ -185,63 +174,62 @@ namespace UtilityExtensions {
     }
 
     result = sb->ToString();
-    return Common::SetString(result, isWide, ppResult);
+    return Common::SetString(result, pIn->isWide, pResult);
   }
 
-  int EXT::Join(int argc, DbStr *aValues, bool isWide, void **ppResult) {
+  int EXT::Join(int argc, DbStr *aValues, DbStr *pResult) {
     assert(argc >= 3);
     // first element in aValues is the separator
     assert(aValues && aValues[0].pText);
-    String^ sep = Common::GetString(aValues[0].pText, aValues[0].cb, isWide);
+    String^ sep = Common::GetString(aValues);
     int len = argc - 1;
     array<String^>^ inputs = gcnew array<String^>(len);
     for (int i = 0, j = 1; i < len; i++, j++) {
       assert(aValues[j].pText);
-      inputs[i] = Common::GetString(aValues[j].pText, aValues[j].cb, isWide);
+      inputs[i] = Common::GetString(aValues + j);
     }
-    return Common::SetString(String::Join(sep, inputs), isWide, ppResult);
+    return Common::SetString(String::Join(sep, inputs), aValues->isWide, pResult);
   }
 
-  int EXT::LeftString(DbStr *pIn, int count, bool isWide, void **ppResult) {
+  int EXT::LeftString(DbStr *pIn, int count, DbStr *pResult) {
     assert(count >= 0);
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     StringInfo^ si = gcnew StringInfo(input);
     if (count >= si->LengthInTextElements) {
-      return Common::SetString(input, isWide, ppResult);
+      return Common::SetString(input, pIn->isWide, pResult);
     }
     else {
       String^ result = si->SubstringByTextElements(0, count);
-      return Common::SetString(result, isWide, ppResult);
+      return Common::SetString(result, pIn->isWide, pResult);
     }
   }
 
   int EXT::Like(DbStr *pIn,
                 DbStr *pPattern,
                 DbStr *pEscape,
-                bool isWide,
                 bool noCase,
                 int *result)
   {
     String^ esc = nullptr;
     if (pEscape) {
-      esc = Common::GetString(pEscape, isWide);
+      esc = Common::GetString(pEscape);
       StringInfo^ si = gcnew StringInfo(esc);
       if (si->LengthInTextElements != 1) return ERR_ESC_LENGTH;
     }
-    String^ pattern = Common::GetString(pPattern, isWide);
+    String^ pattern = Common::GetString(pPattern);
     array<String^>^ aPattern = parseGraphemes(pattern);
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     array<String^>^ aInput = parseGraphemes(input);
     CmpState^ state = gcnew CmpState(aInput->Length, aPattern->Length, noCase);
     *result = likeCompare(aInput, aPattern, esc, state) ? 1 : 0;
     return RESULT_OK;
   }
 
-  int EXT::PadCenter(DbStr *pIn, int len, bool isWide, void **ppResult) {
+  int EXT::PadCenter(DbStr *pIn, int len, DbStr *pResult) {
     String^ result = nullptr;
     assert(len >= 0);
 
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     StringInfo^ si = gcnew StringInfo(input);
     int cLen = si->LengthInTextElements;
     if (cLen >= len) {
@@ -252,52 +240,52 @@ namespace UtilityExtensions {
       int totalPad = len + lenAdj - input->Length;
       result = input->PadLeft(input->Length + (totalPad / 2))->PadRight(input->Length + totalPad);
     }
-    return Common::SetString(result, isWide, ppResult);
+    return Common::SetString(result, pIn->isWide, pResult);
   }
 
-  int EXT::PadLeft(DbStr *pIn, int len, bool isWide, void **ppResult) {
+  int EXT::PadLeft(DbStr *pIn, int len, DbStr *pResult) {
     String^ result = nullptr;
     assert(len >= 0);
 
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     StringInfo^ si = gcnew StringInfo(input);
     int cLen = si->LengthInTextElements;
     if (cLen >= len) {
-      return Common::SetString(input, isWide, ppResult);
+      return Common::SetString(input, pIn->isWide, pResult);
     }
     else {
       len += input->Length - cLen;
       result = input->PadLeft(len);
-      return Common::SetString(result, isWide, ppResult);
+      return Common::SetString(result, pIn->isWide, pResult);
     }
   }
 
-  int EXT::PadRight(DbStr *pIn, int len, bool isWide, void **ppResult) {
+  int EXT::PadRight(DbStr *pIn, int len, DbStr *pResult) {
     String^ result = nullptr;
     assert(len >= 0);
 
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     StringInfo^ si = gcnew StringInfo(input);
     int cLen = si->LengthInTextElements;
     if (cLen >= len) {
-      return Common::SetString(input, isWide, ppResult);
+      return Common::SetString(input, pIn->isWide, pResult);
     }
     else {
       len += input->Length - cLen;
       result = input->PadRight(len);
-      return Common::SetString(result, isWide, ppResult);
+      return Common::SetString(result, pIn->isWide, pResult);
     }
   }
 
-  int EXT::Replicate(DbStr *pIn, int count, bool isWide, void **ppResult) {
+  int EXT::Replicate(DbStr *pIn, int count, DbStr *pResult) {
     String^ result = nullptr;
     int destCursor = 0;
     assert(count >= 0);
 
     if (count == 0) {
-      return Common::SetString("", isWide, ppResult);
+      return Common::SetString("", pIn->isWide, pResult);
     }
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     int len = input->Length;
     array<wchar_t>^ resultchars = gcnew array<wchar_t>(len * count);
     for (int i = 0; i < count; i++) {
@@ -305,12 +293,12 @@ namespace UtilityExtensions {
       destCursor += len;
     }
     result = gcnew String(resultchars);
-    return Common::SetString(result, isWide, ppResult);
+    return Common::SetString(result, pIn->isWide, pResult);
   }
 
-  int EXT::Reverse(DbStr *pIn, bool isWide, void **ppResult) {
+  int EXT::Reverse(DbStr *pIn, DbStr *pResult) {
     String^ result = nullptr;
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     StringInfo^ si = gcnew StringInfo(input);
     if (si->LengthInTextElements == input->Length) {
       array<wchar_t>^ chars = input->ToCharArray();
@@ -326,57 +314,53 @@ namespace UtilityExtensions {
       result = sb->ToString();
     }
 
-    return Common::SetString(result, isWide, ppResult);
+    return Common::SetString(result, pIn->isWide, pResult);
   }
 
-  int EXT::RightString(DbStr *pIn, int count, bool isWide, void **ppResult) {
+  int EXT::RightString(DbStr *pIn, int count, DbStr *pResult) {
     assert(count >= 0);
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     StringInfo^ si = gcnew StringInfo(input);
     if (count >= si->LengthInTextElements) {
-      return Common::SetString(input, isWide, ppResult);
+      return Common::SetString(input, pIn->isWide, pResult);
     }
     else {
       String^ result = si->SubstringByTextElements(si->LengthInTextElements -
                                                    count);
-      return Common::SetString(result, isWide, ppResult);
+      return Common::SetString(result, pIn->isWide, pResult);
     }
   }
 
-  int EXT::UpperLower(DbStr *pIn, bool isWide, bool upper, void **ppResult) {
-    String^ input = Common::GetString(pIn, isWide);
+  int EXT::UpperLower(DbStr *pIn, bool upper, DbStr *pResult) {
+    String^ input = Common::GetString(pIn);
     if (input->Length == 0) {
-      return Common::SetString("", isWide, ppResult);
+      return Common::SetString("", pIn->isWide, pResult);
     }
     TextInfo^ ti = Common::Culture->TextInfo;
     if (upper) {
-      return Common::SetString(ti->ToUpper(input), isWide, ppResult);
+      return Common::SetString(ti->ToUpper(input), pIn->isWide, pResult);
     }
     else {
-      return Common::SetString(ti->ToLower(input), isWide, ppResult);
+      return Common::SetString(ti->ToLower(input), pIn->isWide, pResult);
     }
   }
 
-  int EXT::SetCulture(const void *zIn, int cbIn, bool isWide, int *previous) {
-    int err;
-    if (zIn) {
-      String^ lc = Common::GetString(zIn, cbIn, isWide);
-      err = Common::SetCultureInfo(lc, previous);
+  int EXT::SetCulture(DbStr *pIn, int *previous) {
+    int rc;
+    if (pIn != nullptr) {
+      String^ lc = Common::GetString(pIn);
+      rc = Common::SetCultureInfo(lc, previous);
     }
     else {
       *previous = Common::Culture->LCID;
-      err = RESULT_OK;
+      rc = RESULT_OK;
     }
-    return err;
+    return rc;
   }
 
-  int EXT::UtfCollate(DbStr *pLeft,
-                      DbStr *pRight,
-                      bool isWide,
-                      bool noCase)
-  {
-    String^ sLeft = Common::GetString(pLeft, isWide);
-    String^ sRight = Common::GetString(pRight, isWide);
+  int EXT::UtfCollate(DbStr *pLeft, DbStr *pRight, bool noCase) {
+    String^ sLeft = Common::GetString(pLeft);
+    String^ sRight = Common::GetString(pRight);
     if (noCase) {
       return Common::Culture->CompareInfo->Compare(sLeft,
                                                    sRight,

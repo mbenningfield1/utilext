@@ -1,0 +1,43 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the timespan_cmp() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test time_cmp-2.0 {Verify NULL return with NULL lhs arg} -body {
+  return [elem0 [db eval {select timespan_cmp(NULL, 791137825);}]]
+} -result NULL
+
+
+test time_cmp-2.1 {Verify NULL return with NULL rhs arg} -body {
+  return [elem0 [db eval {select timespan_cmp(791137825, NULL);}]]
+} -result NULL
+
+
+test time_cmp-2.2 {Verify correct less-than result} -body {
+  return [elem0 [db eval {select timespan_cmp(791137825, 873181779);}]]
+} -result -1
+
+
+test time_cmp-2.3 {Verify correct greater-than result} -body {
+  return [elem0 [db eval {select timespan_cmp(873181779, 791137825);}]]
+} -result 1
+
+
+test time_cmp-2.4 {Verify correct equal-to result} -body {
+  return [elem0 [db eval {select timespan_cmp(791137825, 791137825);}]]
+} -result 0
+
+db close
+tcltest::cleanupTests
+

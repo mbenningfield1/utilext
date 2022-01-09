@@ -32,30 +32,30 @@
 
 using namespace System;
 using namespace System::Globalization;
+using namespace System::Numerics;
 
 using DEC = UtilityExtensions::DecimalExt;
 
 namespace UtilityExtensions {
 
-  int DEC::DecimalAbs(DbStr *pIn, bool isWide, void **zResult) {
-    String^ sValue = Common::GetString(pIn, isWide);
+  int DEC::DecimalAbs(DbStr *pIn, DbStr *pResult) {
+    String^ sValue = Common::GetString(pIn);
     Decimal result;
-    bool flag = parseDecimal(sValue, result);
-    if (flag) {
+    if (parseDecimal(sValue, result)) {
       result = Math::Abs(result);
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), pIn->isWide, pResult);
     }
     return ERR_DECIMAL_PARSE;
   }
 
-  int DEC::DecimalAdd(int argc, DbStr *aValues, bool isWide, void **zResult) {
+  int DEC::DecimalAdd(int argc, DbStr *aValues, DbStr *pResult) {
     assert(argc > 0);
     array<Decimal>^ dVals = gcnew array<Decimal>(argc);
+    bool isWide = aValues[0].isWide;
     for (int i = 0; i < argc; i++) {
-      String^ s = Common::GetString(aValues[i].pText, aValues[i].cb, isWide);
+      String^ s = Common::GetString(aValues + i);
       Decimal d;
-      bool flag = parseDecimal(s, d);
-      if (!flag) return ERR_DECIMAL_PARSE;
+      if (!parseDecimal(s, d)) return ERR_DECIMAL_PARSE;
       dVals[i] = d;
     }
     Decimal result = dVals[0];
@@ -63,25 +63,21 @@ namespace UtilityExtensions {
       for (int i = 1; i < argc; i++) {
         result += dVals[i];
       }
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), isWide, pResult);
     }
     catch (OverflowException^) {
       return ERR_DECIMAL_OVFLOW;
     }
   }
 
-  int DEC::DecimalAverageAny(int argc,
-                             DbStr *aValues,
-                             bool isWide,
-                             void **zResult)
-  {
+  int DEC::DecimalAverageAny(int argc, DbStr *aValues, DbStr *pResult) {
     assert(argc > 0);
+    bool isWide = aValues[0].isWide;
     array<Decimal>^ dVals = gcnew array<Decimal>(argc);
     for (int i = 0; i < argc; i++) {
-      String^ s = Common::GetString(aValues[i].pText, aValues[i].cb, isWide);
+      String^ s = Common::GetString(aValues + i);
       Decimal d;
-      bool flag = parseDecimal(s, d);
-      if (!flag) return ERR_DECIMAL_PARSE;
+      if (!parseDecimal(s, d)) return ERR_DECIMAL_PARSE;
       dVals[i] = d;
     }
     Decimal result = dVals[0];
@@ -89,10 +85,10 @@ namespace UtilityExtensions {
       result += dVals[i];
     }
     result /= argc;
-    return Common::SetString(result.ToString(), isWide, zResult);
+    return Common::SetString(result.ToString(), isWide, pResult);
   }
 
-  int DEC::DecimalAverageFinal(int *pAgg, bool isWide, void **zResult) {
+  int DEC::DecimalAverageFinal(u64 *pAgg, bool isWide, DbStr *pResult) {
     // if the query returns no rows and the xFinal() function is called without
     // a prior call to xStep(), then pAgg is a NULL pointer.
 
@@ -120,20 +116,19 @@ namespace UtilityExtensions {
     }
     _values->Remove(context);
     if (err == RESULT_OK) {
-      return Common::SetString(result, isWide, zResult);
+      return Common::SetString(result, isWide, pResult);
     }
     return err;
   }
 
-
-  int DEC::DecimalAverageInverse(DbStr *pIn, bool isWide, int *pAgg) {
+  int DEC::DecimalAverageInverse(DbStr *pIn, u64 *pAgg) {
     // opposite of step(), so decrement the count and decrease the sum; we are
     // removing a value from the window that we must have put there in the first
     // place, so assert that this is a good value.
 
     assert(pIn);
     IntPtr context = (IntPtr)pAgg;
-    String^ input = Common::Common::GetString(pIn, isWide);
+    String^ input = Common::Common::GetString(pIn);
     Decimal d;
     bool flag = parseDecimal(input, d);
     assert(flag);
@@ -146,9 +141,9 @@ namespace UtilityExtensions {
     return ERR_DECIMAL_PARSE;
   }
 
-  int DEC::DecimalAverageStep(DbStr *pIn, bool isWide, int *pAgg) {
+  int DEC::DecimalAverageStep(DbStr *pIn, u64 *pAgg) {
     IntPtr context = (IntPtr)pAgg;
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     Decimal d;
     Decimal sum;
     bool flag = parseDecimal(input, d);
@@ -176,30 +171,29 @@ namespace UtilityExtensions {
     return RESULT_OK;
   }
 
-  int DEC::DecimalAverageValue(int *pAgg, bool isWide, void **zResult) {
+  int DEC::DecimalAverageValue(u64 *pAgg, bool isWide, DbStr *pResult) {
     // step() has already been called with at least one valid number, so
-    // there should be a key into the hashtables for this context
+    // there should be a key into the hashtable for this context
     IntPtr context = (IntPtr)pAgg;
     assert(_values->ContainsKey(context));
     Decimal sum = _values[context];
-    try
-    {
+    assert(*pAgg > 0);
+    try {
       Decimal result = sum / *pAgg;
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), isWide, pResult);
     }
-    catch (OverflowException^)
-    {
+    catch (OverflowException^) {
       _values->Remove(context);
       return ERR_DECIMAL_OVFLOW;
     }
   }
 
-  int DEC::DecimalCeiling(DbStr *pIn, bool isWide, void **zResult) {
-    String^ input = Common::GetString(pIn, isWide);
+  int DEC::DecimalCeiling(DbStr *pIn, DbStr *pResult) {
+    String^ input = Common::GetString(pIn);
     Decimal d;
-    bool flag = parseDecimal(input, d);
-    if (flag) {
-      return Common::SetString(Decimal::Ceiling(d).ToString(), isWide, zResult);
+    if (parseDecimal(input, d)) {
+      return Common::SetString(Decimal::Ceiling(d).ToString(),
+                               pIn->isWide, pResult);
     }
     return ERR_DECIMAL_PARSE;
   }
@@ -219,11 +213,11 @@ namespace UtilityExtensions {
   // If any argument that is not a decimal compares to an argument that is,
   // we sort the non-decimal before the decimal, as if it were NULL. For 2
   // arguments where neither is a decimal, we just compare with BINARY.
-  int DEC::DecimalCollate(DbStr *pLeft, DbStr *pRight, bool isWide) {
+  int DEC::DecimalCollate(DbStr *pLeft, DbStr *pRight) {
     bool nonLhs = false;
     bool nonRhs = false;
-    String^ sLeft = Common::GetString(pLeft, isWide);
-    String^ sRight = Common::GetString(pRight, isWide);
+    String^ sLeft = Common::GetString(pLeft);
+    String^ sRight = Common::GetString(pRight);
     Decimal left;
     nonLhs = !parseDecimal(sLeft, left);
     Decimal right;
@@ -249,13 +243,9 @@ namespace UtilityExtensions {
     }
   }
 
-  int DEC::DecimalCompare(DbStr *pLeft,
-                          DbStr *pRight,
-                          bool isWide,
-                          int *pResult)
-  {
-    String^ sLeft = Common::GetString(pLeft, isWide);
-    String^ sRight = Common::GetString(pRight, isWide);
+  int DEC::DecimalCompare(DbStr *pLeft, DbStr *pRight, int *pResult) {
+    String^ sLeft = Common::GetString(pLeft);
+    String^ sRight = Common::GetString(pRight);
     Decimal left;
     bool flag = parseDecimal(sLeft, left);
     if (!flag) return ERR_DECIMAL_PARSE;
@@ -266,13 +256,9 @@ namespace UtilityExtensions {
     return RESULT_OK;
   }
 
-  int DEC::DecimalDivide(DbStr *pLeft,
-                         DbStr *pRight,
-                         bool isWide,
-                         void **zResult)
-  {
-    String^ sLeft = Common::GetString(pLeft, isWide);
-    String^ sRight = Common::GetString(pRight, isWide);
+  int DEC::DecimalDivide(DbStr *pLeft, DbStr *pRight, DbStr *pResult) {
+    String^ sLeft = Common::GetString(pLeft);
+    String^ sRight = Common::GetString(pRight);
     Decimal left;
     bool flag = parseDecimal(sLeft, left);
     if (!flag) return ERR_DECIMAL_PARSE;
@@ -281,7 +267,7 @@ namespace UtilityExtensions {
     if (!flag) return ERR_DECIMAL_PARSE;
     try {
       Decimal result = left / right;
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), pLeft->isWide, pResult);
     }
     catch (DivideByZeroException^) {
       return ERR_DECIMAL_DIVZ;
@@ -291,125 +277,67 @@ namespace UtilityExtensions {
     }
   }
 
-  int DEC::DecimalFloor(DbStr *pIn, bool isWide, void **zResult) {
-    String^ sValue = Common::GetString(pIn, isWide);
+  int DEC::DecimalFloor(DbStr *pIn, DbStr *pResult) {
+    String^ sValue = Common::GetString(pIn);
     Decimal result;
-    bool flag = parseDecimal(sValue, result);
-    if (flag) {
+    if (parseDecimal(sValue, result)) {
       result = Decimal::Floor(result);
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), pIn->isWide, pResult);
     }
     return ERR_DECIMAL_PARSE;
   }
 
-  int DEC::DecimalMax2(DbStr *pLeft,
-                       DbStr *pRight,
-                       bool isWide,
-                       void **zResult)
-  {
-    String^ sLeft = nullptr;
-    Decimal left;
-    String^ sRight = nullptr;
-    Decimal right;
-    bool flag = false;
+  int DEC::DecimalLog(DbStr *pIn, DbStr *pResult) {
+    String^ sValue = Common::GetString(pIn);
+    Decimal number;
     Decimal result;
-
-    if (pLeft == nullptr && pRight == nullptr) return RESULT_NULL;
-    if (pLeft) {
-      sLeft = Common::GetString(pLeft, isWide);
-      flag = parseDecimal(sLeft, left);
-      if (!flag) return ERR_DECIMAL_PARSE;
+    if (parseDecimal(sValue, number)) {
+      double d = Math::Log((double)number);
+      if (Double::IsNaN(d) || Double::IsInfinity(d)) {
+        return ERR_DECIMAL_NAN;
+      }
+      result = roundDouble(d);
+      return Common::SetString(result.ToString(), pIn->isWide, pResult);
     }
-    if (pRight) {
-      sRight = Common::GetString(pRight, isWide);
-      flag = parseDecimal(sRight, right);
-      if (!flag) return ERR_DECIMAL_PARSE;
-    }
-    if (pLeft && pRight) {
-      result = Math::Max(left, right);
-    }
-    else if (pLeft) {
-      result = left;
-    }
-    else {
-      result = right;
-    }
-    return Common::SetString(result.ToString(), isWide, zResult);
+    return ERR_DECIMAL_PARSE;
   }
 
-  int DEC::DecimalMaxAny(int argc, DbStr *aValues, bool isWide, void **zResult) {
+  int DEC::DecimalLog(DbStr *pIn, double base, DbStr *pResult) {
+    String^ sValue = Common::GetString(pIn);
+    Decimal number;
+    Decimal result;
+    if (parseDecimal(sValue, number)) {
+      double d = Math::Log((double)number, base);
+      if (Double::IsNaN(d) || Double::IsInfinity(d)) {
+        return ERR_DECIMAL_NAN;
+      }
+      result = roundDouble(d);
+      return Common::SetString(result.ToString(), pIn->isWide, pResult);
+    }
+    return ERR_DECIMAL_PARSE;
+  }
+
+  int DEC::DecimalLog10(DbStr *pIn, DbStr *pResult) {
+    String^ sValue = Common::GetString(pIn);
+    Decimal number;
+    Decimal result;
+    if (parseDecimal(sValue, number)) {
+      double d = Math::Log10((double)number);
+      if (Double::IsNaN(d) || Double::IsInfinity(d)) {
+        return ERR_DECIMAL_NAN;
+      }
+      result = roundDouble(d);
+      return Common::SetString(result.ToString(), pIn->isWide, pResult);
+    }
+    return ERR_DECIMAL_PARSE;
+  }
+
+  int DEC::DecimalMultiply(int argc, DbStr *aValues, DbStr *pResult) {
     assert(argc > 0);
     array<Decimal>^ dVals = gcnew array<Decimal>(argc);
+    bool isWide = aValues[0].isWide;
     for (int i = 0; i < argc; i++) {
-      String^ s = Common::GetString(aValues[i].pText, aValues[i].cb, isWide);
-      Decimal d;
-      bool flag = parseDecimal(s, d);
-      if (!flag) return ERR_DECIMAL_PARSE;
-      dVals[i] = d;
-    }
-    Decimal result = dVals[0];
-    for (int i = 1; i < argc; i++) {
-      if (dVals[i] > result) result = dVals[i];
-    }
-    return Common::SetString(result.ToString(), isWide, zResult);
-  }
-
-  int DEC::DecimalMin2(DbStr *pLeft,
-                       DbStr *pRight,
-                       bool isWide,
-                       void **zResult)
-  {
-    String^ sLeft = nullptr;
-    Decimal left;
-    String^ sRight = nullptr;
-    Decimal right;
-    bool flag = false;
-    Decimal result;
-
-    if (pLeft == nullptr && pRight == nullptr) return RESULT_NULL;
-    if (pLeft) {
-      sLeft = Common::GetString(pLeft, isWide);
-      flag = parseDecimal(sLeft, left);
-      if (!flag) return ERR_DECIMAL_PARSE;
-    }
-    if (pRight) {
-      sRight = Common::GetString(pRight, isWide);
-      flag = parseDecimal(sRight, right);
-      if (!flag) return ERR_DECIMAL_PARSE;
-    }
-    if (pLeft && pRight) {
-      result = Math::Min(left, right);
-    }
-    else if (pLeft) {
-      result = left;
-    }
-    else {
-      result = right;
-    }
-    return Common::SetString(result.ToString(), isWide, zResult);
-  }
-
-  int DEC::DecimalMinAny(int argc, DbStr *aValues, bool isWide, void **zResult) {
-    array<Decimal>^ dVals = gcnew array<Decimal>(argc);
-    for (int i = 0; i < argc; i++) {
-      String^ s = Common::GetString(aValues[i].pText, aValues[i].cb, isWide);
-      Decimal d;
-      bool flag = parseDecimal(s, d);
-      if (!flag) return ERR_DECIMAL_PARSE;
-      dVals[i] = d;
-    }
-    Decimal result = dVals[0];
-    for (int i = 1; i < argc; i++) {
-      if (dVals[i] < result) result = dVals[i];
-    }
-    return Common::SetString(result.ToString(), isWide, zResult);
-  }
-
-  int DEC::DecimalMultiply(int argc, DbStr *aValues, bool isWide, void **zResult) {
-    assert(argc > 0);
-    array<Decimal>^ dVals = gcnew array<Decimal>(argc);
-    for (int i = 0; i < argc; i++) {
-      String^ s = Common::GetString(aValues[i].pText, aValues[i].cb, isWide);
+      String^ s = Common::GetString(aValues + i);
       Decimal d;
       bool flag = parseDecimal(s, d);
       if (!flag) return ERR_DECIMAL_PARSE;
@@ -420,32 +348,47 @@ namespace UtilityExtensions {
       for (int i = 1; i < argc; i++) {
         result *= dVals[i];
       }
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), isWide, pResult);
     }
     catch (OverflowException^) {
       return ERR_DECIMAL_OVFLOW;
     }
   }
 
-  int DEC::DecimalNegate(DbStr *pIn, bool isWide, void **zResult) {
-    String^ sValue = Common::GetString(pIn, isWide);
+  int DEC::DecimalNegate(DbStr *pIn,DbStr *pResult) {
+    String^ sValue = Common::GetString(pIn);
     Decimal result;
     bool flag = parseDecimal(sValue, result);
     if (flag) {
       result = Decimal::Negate(result);
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), pIn->isWide, pResult);
     }
     return ERR_DECIMAL_PARSE;
   }
 
+  int DEC::DecimalPower(DbStr *pIn, double exponent, DbStr *pResult) {
+    String^ sBase = Common::GetString(pIn);
+    Decimal base;
+    Decimal result;
+    if (parseDecimal(sBase, base)) {
+      try {
+        double d = Math::Pow((double)base, exponent);
+        if (Double::IsNaN(d) || Double::IsInfinity(d)) {
+          return ERR_DECIMAL_NAN;
+        }
+        result = roundDouble(d);
+        return Common::SetString(result.ToString(), pIn->isWide, pResult);
+      }
+      catch (OverflowException^) {
+        return ERR_DECIMAL_OVFLOW;
+      }
+    }
+    return ERR_DECIMAL_PARSE;
+  }
 
-  int DEC::DecimalRemainder(DbStr *pLeft,
-                            DbStr *pRight,
-                            bool isWide,
-                            void **zResult)
-  {
-    String^ sLeft = Common::GetString(pLeft, isWide);
-    String^ sRight = Common::GetString(pRight, isWide);
+  int DEC::DecimalRemainder(DbStr *pLeft, DbStr *pRight, DbStr *pResult) {
+    String^ sLeft = Common::GetString(pLeft);
+    String^ sRight = Common::GetString(pRight);
     Decimal left;
     bool flag = parseDecimal(sLeft, left);
     if (!flag) return ERR_DECIMAL_PARSE;
@@ -454,7 +397,7 @@ namespace UtilityExtensions {
     if (!flag) return ERR_DECIMAL_PARSE;
     try {
       Decimal result = Decimal::Remainder(left, right);
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), pLeft->isWide, pResult);
     }
     catch (DivideByZeroException^) {
       return ERR_DECIMAL_DIVZ;
@@ -464,28 +407,19 @@ namespace UtilityExtensions {
     }
   }
 
-
-  int DEC::DecimalRound(DbStr *pIn,
-                        bool isWide,
-                        int digits,
-                        const void *zMode,
-                        int cbMode,
-                        void **zResult)
-  {
+  int DEC::DecimalRound(DbStr *pIn, int digits, DbStr *pMode, DbStr *pResult) {
     if (digits < 0 || digits > 28) {
       return ERR_DECIMAL_PREC;
     }
-    String^ sValue = Common::GetString(pIn, isWide);
-    String^ sMode = Common::GetString(zMode, cbMode, isWide);
+    String^ sValue = Common::GetString(pIn);
+    String^ sMode = Common::GetString(pMode);
     MidpointRounding mp;
-    if (String::Compare(sMode,
-                        "even",
+    if (String::Compare(sMode, "even",
                         StringComparison::OrdinalIgnoreCase) == 0)
     {
       mp = MidpointRounding::ToEven;
     }
-    else if (String::Compare(sMode,
-                             "norm",
+    else if (String::Compare(sMode, "norm",
                              StringComparison::OrdinalIgnoreCase) == 0)
     {
       mp = MidpointRounding::AwayFromZero;
@@ -494,11 +428,10 @@ namespace UtilityExtensions {
       return ERR_DECIMAL_MODE;
     }
     Decimal result;
-    bool flag = parseDecimal(sValue, result);
-    if (flag) {
+    if (parseDecimal(sValue, result)) {
       try {
         result = Decimal::Round(result, digits, mp);
-        return Common::SetString(result.ToString(), isWide, zResult);
+        return Common::SetString(result.ToString(), pIn->isWide, pResult);
       }
       catch (OverflowException^) {
         return ERR_DECIMAL_OVFLOW;
@@ -507,14 +440,9 @@ namespace UtilityExtensions {
     return ERR_DECIMAL_PARSE;
   }
 
-
-  int DEC::DecimalSubtract(DbStr *pLeft,
-                           DbStr *pRight,
-                           bool isWide,
-                           void **zResult)
-  {
-    String^ sLeft = Common::GetString(pLeft, isWide);
-    String^ sRight = Common::GetString(pRight, isWide);
+  int DEC::DecimalSubtract(DbStr *pLeft, DbStr *pRight, DbStr *pResult) {
+    String^ sLeft = Common::GetString(pLeft);
+    String^ sRight = Common::GetString(pRight);
     Decimal left;
     bool flag = parseDecimal(sLeft, left);
     if (!flag) return ERR_DECIMAL_PARSE;
@@ -523,15 +451,14 @@ namespace UtilityExtensions {
     if (!flag) return ERR_DECIMAL_PARSE;
     try {
       Decimal result = left - right;
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), pLeft->isWide, pResult);
     }
     catch (OverflowException^) {
       return ERR_DECIMAL_OVFLOW;
     }
   }
 
-
-  int DEC::DecimalSumFinal(int *pAgg, bool isWide, void **zResult) {
+  int DEC::DecimalTotalFinal(u64 *pAgg, bool isWide, DbStr *pResult) {
     if (pAgg && *pAgg == -1) {
       // xStep() or xValue() returned an error and cleared the hash key; this
       // call is only to dispose of context, which happens on the native
@@ -555,17 +482,16 @@ namespace UtilityExtensions {
     }
     _values->Remove(context);
     if (err == RESULT_OK) {
-      return Common::SetString(result, isWide, zResult);
+      return Common::SetString(result, isWide, pResult);
     }
     return err;
   }
 
-
-  int DEC::DecimalSumInverse(DbStr *pIn, bool isWide, void *pAgg) {
+  int DEC::DecimalTotalInverse(DbStr *pIn, void *pAgg) {
     // we're doing the opposite of step(), so subtract the value
 
     IntPtr context = (IntPtr)pAgg;
-    String^ input = Common::Common::GetString(pIn, isWide);
+    String^ input = Common::Common::GetString(pIn);
     Decimal d;
     bool flag = parseDecimal(input, d);
     assert(flag);
@@ -577,10 +503,9 @@ namespace UtilityExtensions {
     return ERR_DECIMAL_PARSE;
   }
 
-
-  int DEC::DecimalSumStep(DbStr *pIn, bool isWide, void *pAgg) {
+  int DEC::DecimalTotalStep(DbStr *pIn, void *pAgg) {
     IntPtr context = (IntPtr)pAgg;
-    String^ input = Common::GetString(pIn, isWide);
+    String^ input = Common::GetString(pIn);
     Decimal d;
     Decimal sum;
     bool flag = parseDecimal(input, d);
@@ -606,30 +531,24 @@ namespace UtilityExtensions {
     return RESULT_OK;
   }
 
-
-  int DEC::DecimalSumValue(void *pAgg, bool isWide, void **zResult) {
+  int DEC::DecimalTotalValue(void *pAgg, bool isWide, DbStr *pResult) {
     // step() has already been called with at least one valid number, so
     // we can assert that the key for this context exists.
     IntPtr context = (IntPtr)pAgg;
     assert(_values->ContainsKey(context));
     Decimal result = _values[context];
-    return Common::SetString(result.ToString(), isWide, zResult);
+    return Common::SetString(result.ToString(), isWide, pResult);
   }
 
-
-  int DEC::DecimalTruncate(DbStr *pIn, bool isWide, void **zResult) {
-    String^ sValue = Common::GetString(pIn, isWide);
+  int DEC::DecimalTruncate(DbStr *pIn, DbStr *pResult) {
+    String^ sValue = Common::GetString(pIn);
     Decimal result;
-    bool flag = parseDecimal(sValue, result);
-    if (flag) {
+    if (parseDecimal(sValue, result)) {
       result = Decimal::Truncate(result);
-      return Common::SetString(result.ToString(), isWide, zResult);
+      return Common::SetString(result.ToString(), pIn->isWide, pResult);
     }
     return ERR_DECIMAL_PARSE;
   }
-
-
-
 
   // private methods
 
@@ -638,6 +557,15 @@ namespace UtilityExtensions {
                              NumberStyles::Any,
                              Common::Culture,
                              result);
+  }
+
+  Decimal DEC::roundDouble(double d) {
+    double scale = d * 10000.0;
+    BigInteger bi = BigInteger(scale);
+    if (scale - (double)bi >= 0.5) {
+      bi++;
+    }
+    return (Decimal)(bi) / Decimal(10000);
   }
 }
 

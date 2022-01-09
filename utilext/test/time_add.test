@@ -14,42 +14,42 @@ source errors.tcl
 setup db
 
 
-test null_all {Verify that NULL is returned with all args NULL} -body {
+test time_add-1.0 {Verify that NULL is returned with all args NULL} -body {
   return [elem0 [db eval {select timespan_add(NULL, NULL, NULL, NULL);}]]
 } -result NULL
 
 
-test null_any {Verify that a NULL arg is ignored if non-NULL args are present} -body {
+test time_add-1.1 {Verify that a NULL arg is ignored if non-NULL args are present} -body {
   return [elem0 [db eval {select timespan_add(444487607, -596084398, NULL);}]]
 } -result -151596791
 
 
-test args_zero {Verify NULL return with zero arguments} -body {
+test time_add-1.2 {Verify NULL return with zero arguments} -body {
   return [elem0 [db eval {select timespan_add();}]]
 } -result NULL
 
 
-test args_one {Verify result with only 1 argument} -body {
+test time_add-1.3 {Verify result with only 1 argument} -body {
   return [elem0 [db eval {select timespan_add(23442334);}]]
 } -result 23442334
 
 
-test pos_overflow {Verify error on positive overflow} -body {
+test time_add-1.4 {Verify error on positive overflow} -body {
   db eval {select timespan_add($TIME_MAX, 1);}
 } -returnCodes 1 -result $SqliteTooBig
 
 
-test neg_overflow {Verify error on negative overflow} -body {
+test time_add-1.5 {Verify error on negative overflow} -body {
   db eval {select timespan_add($TIME_MIN, -1);}
 } -returnCodes 1 -result $SqliteTooBig
 
 
-test normal {Just add up some numbers} -body {
+test time_add-1.6 {Just add up some numbers} -body {
   return [elem0 [db eval {select timespan_add(444487607, -596084398, 107217565);}]]
 } -result -44379226
 
 
-test max_args {Verify that we can handle up to the limit of function args} -body {
+test time_add-1.7 {Verify that we can handle up to the limit of function args} -body {
   set values {
     987386441   527791854   766855116   -385002703  406767332   -432981754
     -832325456  571751473   -803590871  302046253   -473267289  -872047476
@@ -112,3 +112,4 @@ test max_args {Verify that we can handle up to the limit of function args} -body
 
 db close
 tcltest::cleanupTests
+

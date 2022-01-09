@@ -14,20 +14,21 @@ source errors.tcl
 setup db
 
 
-test null {Verify a NULL return if the arg is NULL} -body {
+test dec_trunc-1.0 {Verify a NULL return if the arg is NULL} -body {
   return [elem0 [db eval {select dec_trunc(NULL);}]]
 } -result NULL
 
 
-test normal {Truncate a decimal} -body {
+test dec_trunc-1.1 {Truncate a decimal} -body {
   return [elem0 [db eval {select dec_trunc('3.45');}]]
 } -result 3
 
 
-test invalid {Verify a parse error on non-numeric arg} -body {
+test dec_trunc-1.2 {Verify a parse error on non-numeric arg} -body {
   db eval {select dec_trunc('fred');}
 } -returnCodes 1 -result $SqliteFormat
 
 
 db close
 tcltest::cleanupTests
+

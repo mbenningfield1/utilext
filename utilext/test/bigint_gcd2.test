@@ -1,0 +1,64 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_gcd() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_gcd-2.0 {Verify NULL return for NULL lhs arg} -body {
+  return [elem0 [db eval {select bigint_gcd(NULL, '1C8');}]]
+} -result NULL
+
+
+test bigint_gcd-2.1 {Verify NULL return for NULL rhs arg} -body {
+  return [elem0 [db eval {select bigint_gcd('1C8', NULL);}]]
+} -result NULL
+
+
+test bigint_gcd-2.2 {Find the GCD of 2 numbers} -body {
+  return [elem0 [db eval {select bigint_gcd('12C', '1F4');}]]
+} -result 64
+
+
+test bigint_gcd-2.3 {Verify parse error on non-numeric lhs arg} -body {
+  db eval {select bigint_gcd('fred', '1C8');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_gcd-2.4 {Verify parse error on non-numeric rhs arg} -body {
+  db eval {select bigint_gcd('1C8', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_gcd-2.6 {Verify valid INTEGER arg works} -body {
+  return [db eval {select bigint_gcd('12C', 64);}]
+} -result 64
+
+
+test bigint_gcd-2.7 {Verify REAL arg fails} -body {
+  db eval {select  bigint_gcd('1C8', 3.2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_gcd-2.8 {Verify valid BLOB succeeds} -body {
+  # 0x310046003400 is 1f4 utf16
+  return [db eval {select bigint_gcd('12C', X'310046003400');}]
+} -result 64
+
+
+test bigint_gcd-2.9 {Verify invalid BLOB fails} -body {
+  db eval {select bigint_gcd('26F', X'2A3B4C');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

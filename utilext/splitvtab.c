@@ -28,31 +28,23 @@
 
 #ifndef UTILEXT_OMIT_REGEX
 
-#pragma warning( disable : 4339 ) /* use of undefined types with /clr =>
+/* Notes in "utilext.c" */
+#pragma warning( disable : 4339 4514 )
+#ifdef NDEBUG
+#pragma warning( disable : 4100)
+#endif
 
-** Also ignored LNK4248 on the linker command line; this is the linker version
-** of the same warning. We are using the opaque pointers 'sqlite3',
-** 'sqlite3_context', and 'sqlite3_value', which are not defined anywhere in
-** managed code. The linker does the right thing, so no worries.
-*/
-
-#pragma warning( push )
-#pragma warning( disable : 4820 ) /* struct padding added */
-
+#pragma warning( disable : 4820 )
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include "sqlite3ext.h"
 #include "RegexExt.h"
 
-#pragma warning ( pop ) /* 4820 */
-
 /* _INIT1 gets evaluated in functions.c */
 SQLITE_EXTENSION_INIT3
 
 typedef UtilityExtensions::RegexExt RegExt;
-typedef UtilityExtensions::DbStrArr DbStrArr;
-typedef UtilityExtensions::DbStr DbStr;
 
 #pragma warning( push )
 #pragma warning( disable : 4820 ) /* struct padding added */
@@ -71,45 +63,15 @@ struct splitvtab_cursor {
 
 #pragma warning ( pop ) /* 4820 */
 
-/* Implements the regsplit() table-valued SQL function
-** SQL Usage: regsplit(S, P)
-**            regsplit(S, P, T)
+
+/* the constructor for splitvtab_vtab objects.
 **
-**    S - the source string to split
-**    P - the regular expression pattern
-**    T - the timeout in milliseconds for the regular expression
+** All this routine needs to do is:
 **
-** Returns one row for each substring that results from splitting `S` based
-** on `P`:
+**    (1) Allocate the splitvtab_vtab object and initialize all fields.
 **
-** If there are no matches in `S`, then one row is returned that is identical
-** to `S`.
-**
-** Returns no rows if any argument is NULL.
-**
-** If `T` is not specified, or is less than or equal to zero, the regular
-** expression will run to completion, unless the `REGEX_DEFAULT_MATCH_TIMEOUT`
-** user property is set on the current managed AppDomain.
-**
-** This function is a wrapper for the 
-** `Regex.Split(string, string, RegexOptions, TimeSpan)` static method. The
-** default options are `RegexOptions.None`, but can be overridden to some extent
-** with inline options.
-**
-** This function is really only legitimately useful in a very narrow range of
-** circumstances. It should not be used to store structured data in lieu of
-** proper database normalization.
-**
-** Errors -
-**
-** <table style="font-size:smaller">
-**  <th>Error</th><th>Condition</th>
-**  <tr><td>SQLITE_ABORT</td><td>The regex operation exceeded an alloted timeout interval</td></tr>
-**  <tr><td>SQLITE_ERROR</td><td>There were not enough arguments supplied to the
-** function, or there was an error parsing the regex pattern. Call <i>sqlite3_errmsg()</i>
-** to retrieve the error message.</td></tr>
-**  <tr><td>SQLITE_NOMEM</td><td>Memory allocation failed</td></tr>
-** </table>
+**    (2) Tell SQLite (via the sqlite3_declare_vtab() interface) what the
+**        result set of queries against the virtual table will look like.
 */
 static int splitvtabConnect(sqlite3 *db,
                             void *pAux,
@@ -232,11 +194,11 @@ static int splitvtabFilter(sqlite3_vtab_cursor *pVtabCursor,
 {
   _CRT_UNUSED(idxStr);
   assert(idxNum >= 3 && idxNum <= 7);
-  DbStr input;
-  DbStr pattern;
   DbStrArr result;
   char *zError;
   int rc;
+  DbStr input = { 0 };
+  DbStr pattern = { 0 };
   int ms = -1;
   splitvtab_cursor *pCur = (splitvtab_cursor*)pVtabCursor;
   if (!pCur->isSet) {

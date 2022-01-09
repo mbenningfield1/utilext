@@ -1,42 +1,48 @@
 # Utility Extensions (utilext.dll)
 A loadable extension for the SQLite database engine that leverages the .NET
 Framework for native or managed applications that run on Windows. It provides
-functions that support Unicode string handling, Decimal math functions, and
-TimeSpan functions for use with date/time values.
+functions that support Unicode string handling, Decimal and BigInteger math
+functions, and TimeSpan functions for use with date/time values.
 
 ## <span id="toc">Contents</span>
 **[Version Info](#version)**  
 **[Technicalities](#tech)**  
 **[The Decimal Type](#dec)**  
 **[Decimal Functions](#declist)**  
+**[The BigInteger Type](#bigint)**  
+**[BigInteger Functions](#bigintlist)**  
 **[String Handling](#str)**  
 **[String Functions](#strlist)**  
 **[Regular Expressions](#regex)**  
 **[Regular Expression Functions](#regexlist)**  
 **[The TimeSpan Type](#time)**  
 **[TimeSpan Functions](#timelist)**  
+**[Library Functions](#liblist)**  
 **[Testing](#testing)**  
 **[Build Notes](#bld)**  
 
 
-
 ## <span id="version">Version Info</span>
-The file versioning for the utilext.dll library follows the normal Windows file
-versioning scheme: *Major.Minor.Build.Revision*
+The utilext library uses a 4-part versioning scheme in the format
+*Major.Minor.Revision.PatchLevel*. The first 3 elements correspond to the
+semantic versioning used by the SQLite library. 
 
 The first three numbers are kept in sync with the latest version of SQLite that
 the library was tested against. In the event of bug fixes for the utilext.dll
-project, the *Revision* number will reflect incremental changes until the next
-release of the SQLite library, at which point the *Revision* number is reset to
-zero.
+project, the *PatchLevel* number will reflect incremental changes until the next
+release of the SQLite library, at which point the *PatchLevel* number is reset
+to zero.
 
-SQLite added support for window functions in version 3.25.0, and several functions
-in the utilext extension are aggregate window functions. If the version of SQLite
-in use is less than 3.25.0, those functions are registered as normal aggregate
-functions rather than as window functions.
+Upgrades to the latest version of the SQLite library are usually limited to
+the latest SQLite *Minor* version ('3.NN.0'), unless SQLite releases a critical
+patch version, which is incorporated as soon as possible.
+
+SQLite added support for window functions in version 3.25.0, and several
+functions in the utilext extension are aggregate window functions. If the
+version of SQLite in use is less than 3.25.0, those functions are registered as
+normal aggregate functions rather than as window functions.
 
 VERSION
-
 
 
 ## <span id="tech">Technicalities</span>
@@ -70,20 +76,72 @@ The SQLite library has no notion of AppDomains, so the extension library must be
 loaded with each connection, or loaded persistently using the provided entry
 point.
 
+#### Notes on data conversion
+You should already be familiar with the flexible type system that SQLite uses.
+If not, you should remedy that shortcoming before trying to use the utilext
+extension library. You can start with
+[Datatypes In SQLite](https://sqlite.org/datatype3.html) and
+[The Advantages Of Flexible Typing](https://sqlite.org/flextypegood.html).
+
+The Decimal and BigInteger 'types' in the utilext extension library are expected
+to be stored as TEXT, in the proper format (Decimal as strings of decimal digits
+with the decimal separator specified by the current culture on the host machine,
+and BigInteger as hexadecimal strings, without any "0x" prefix). If data is
+stored in any other format, SQLite will do it's very best to convert it to TEXT,
+and sometimes the result will be correct. Most of the time, the result will be
+an error raised by one of the extension functions, or it could be a completely
+erroneous and baffling result, with no error returned.
+
+The reason these 'types' are stored as TEXT is so that a custom collation
+sequence can be defined for each one ('decimal' and 'bigint'). For columns that
+are used to store Decimal and BigInteger data, it is highly recommended that the
+appropriate collation sequence be declared on the column. This allows the
+built-in `min()` and `max()` SQL functions to work correctly, along with
+`ORDER BY` clauses and the relational operators ("<", "=", and ">").
+
+Conversely, the TimeSpan 'type' stores values as 64-bit integers. If data is
+presented as TEXT, then SQLite will do it's best to convert the given string
+to an integer value. If SQLite determines that the string does not look like a
+number, it will use 0. While this will allow a given `timespan_XX()` function to
+run to completion without errors, it's odds-on that the result will not be what
+you expect.
+
+
+#### Notes on errors
+When an error is returned by a function in the utilext library, it is one of the
+basic SQLite error codes. With very few exceptions, the error message for that
+error code bears no relation at all to what went wrong with the extension
+function. That's because the extension mechanism for SQLite does not provide a
+way to set an error return code _and_ a unique error message for an extension
+function; it is one or the other. Since the utilext library is intended for use
+by application programmers, it is simpler and more effective to return a defined
+error code, and let the application deal with the messaging. If you use the
+utilext extension functions in the SQLite shell, any resulting errors will of
+course have somewhat baffling error messages.
+
+
+#### Notes on NULL values
+The SQL standard states that NULLs should propagate. However, that sometimes
+leads to results that aren't very useful. Conversely, if you take the approach
+that useful defaults should be used if arguments to a SQL function are NULL,
+the question immediately arises as to what constitutes a useful default. So,
+with very few exceptions, the functions in the utilext library will return NULL
+on NULL inputs.
+
 
 ## <span id="dec">The Decimal Type</span> ##
 The decimal extension functions are wrappers for the methods on the .NET
 Framework `Decimal` data type, so you should bear in mind the particulars and
 limitations of that data type.
 
-The decimal functions provide, in effect, a DECIMAL data type for SQLite. These
-functions are much more intolerant of type mis-matches than is usual for SQLite.
-Calling these functions with data that is not NULL and does not resolve to a
-valid decimal number will usually result in an error. The description of each
-function describes the errors that can result. Data is expected to be stored as
-TEXT and contain only valid numeric strings. Strings are parsed using the
-`System.Globalization.NumberStyles.Any` specifier, so the following are examples
-of valid decimal strings:
+The decimal functions provide a layer of artificial order over the SQLite
+flexible type system. If a provided value is not NULL and does not resolve to
+a suitable value, this usually results in an error being raised. The description
+of each function describes the errors that can result.
+
+Data is expected to be stored as TEXT and contain only valid numeric strings.
+Strings are parsed using the `System.Globalization.NumberStyles.Any` specifier,
+so the following are examples of valid decimal strings:
 
 <table>
   <tr>
@@ -106,11 +164,6 @@ Valid currency symbols depend on the current .NET Culture. Although a currency
 symbol is parsed as valid, storing currency information on an amount column is
 almost invariably a bad idea.
 
-The `dec_min()` and `dec_max()` functions are multi-argument functions, not
-aggregate functions. The built-in SQLite `min()` and `max()` aggregate functions
-will work exactly right if the column that holds the decimal values is defined
-with the 'decimal' collation sequence.
-
 
 ## <span id="declist">Decimal Functions</span>
 
@@ -118,6 +171,34 @@ DEC_LIST
 
 DEC_ENTRIES
 
+
+## <span id="bigint">The BigInteger Type</span>
+The big integer extension functions are wrappers for the methods on the .NET
+Framework `BigInteger` type, so you should be mindful of the particulars and
+limitations of that type, especially with regard to the possible performance
+issues.
+
+The bigint functions provide a layer of artificial order over the SQLite
+flexible type system. If a provided value is not NULL and does not resolve to
+a suitable value, this usually results in an error being raised. The description
+of each function describes the errors that can result.
+
+Data is expected to be stored as TEXT and contain only valid hexadecimal strings.
+
+BigInteger values are stored as hexadecimal strings. This provides the best
+compromise in terms of performance and usability. Hexadecimal strings may or
+may not be considered human-readable (depending on your point of view). To
+obtain a decimal representation of a BigInteger value, you can use the
+`bigint_str()` SQL function. These hexadecimal strings are stored without any
+"0x" prefix. The `bigint()` constructor SQL function will accept hexadecimal
+strings with or without the prefix.
+
+
+## <span id="bigintlist">BigInteger Functions</span>
+
+BIGINT_LIST
+
+BIGINT_ENTRIES
 
 
 ## <span id="str">String Handling</span>
@@ -219,6 +300,13 @@ TIME_LIST
 TIME_ENTRIES
 
 
+## <span id="liblist">Library Functions</span>
+
+LIB_LIST
+
+LIB_ENTRIES
+
+
 ## <span id="testing">Testing</span>
 The `test` folder in the codebase contains the Tcl test scripts and databases
 used for testing the utilext library. The test suite uses a custom build of the
@@ -253,7 +341,7 @@ space in the final library. They are:
 <table style="font-size:smaller">
   <tr>
     <td>UTILEXT_OMIT_DECIMAL</td>
-    <td>Omits the DECIMAL functions and collation sequence</td>
+    <td>Omits the Decimal functions and collation sequence</td>
   </tr>
   <tr>
     <td>UTILEXT_OMIT_REGEX</td>
@@ -271,6 +359,10 @@ space in the final library. They are:
   <tr>
     <td>UTILEXT_OMIT_TIME</td>
     <td>Omits the TimeSpan functions</td>
+  </tr>
+  <tr>
+    <td>UTILEXT_OMIT_BIGINT</td>
+    <td>Omits the BigInteger functions and collation sequence</td>
   </tr>
 </table>
 
@@ -292,5 +384,5 @@ None of the functions are decorated with the `SQLITE_INNOCUOUS` function flag,
 and if you change this, you do so at your own risk.
 
 In the `tools` folder, the `makeDoc.tcl` script is used to generate the
-`UtilityExtension.md` markdown file for the project. See the comments in that
+`README.md` markdown file for the project. See the comments in that
 file and others for more information.

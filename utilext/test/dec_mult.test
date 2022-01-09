@@ -14,42 +14,42 @@ source errors.tcl
 setup db
 
 
-test null_all {Verify NULL return with NULL args} -body {
+test dec_mult-1.0 {Verify NULL return with NULL args} -body {
   return [elem0 [db eval {select dec_mult(NULL, NULL, NULL, NULL);}]]
 } -result NULL
 
 
-test null_any {Verify NULL args are ignored with non-NULLs} -body {
+test dec_mult-1.1 {Verify NULL args are ignored with non-NULLs} -body {
   return [elem0 [db eval {select dec_mult('3.2', '4.5', NULL, '1.6');}]]
 } -result 23.040
 
 
-test args_zero {Verify NULL return with zero arguments} -body {
+test dec_mult-1.2 {Verify NULL return with zero arguments} -body {
   return [elem0 [db eval {select dec_mult();}]]
 } -result NULL
 
 
-test args_one {Verify correct result with only one argument} -body {
+test dec_mult-1.3 {Verify correct result with only one argument} -body {
   return [elem0 [db eval {select dec_mult('4.55');}]]
 } -result 4.55
 
 
-test normal {Multiply some numbers} -body {
+test dec_mult-1.4 {Multiply some numbers} -body {
   return [elem0 [db eval {select dec_mult('4.5', '2.3', '.5');}]]
 } -result 5.175
 
 
-test over_max {Verify range error on too large result} -body {
+test dec_mult-1.5 {Verify range error on too large result} -body {
   db eval {select dec_mult('39614081257132168796771975168', '2.5');}
 } -returnCodes 1 -result $SqliteTooBig
 
 
-test under_min {Verify range error on too small result} -body {
+test dec_mult-1.6 {Verify range error on too small result} -body {
   db eval {select dec_mult('-39614081257132168796771975168', '2.5');}
 } -returnCodes 1 -result $SqliteTooBig
 
 
-test max_args {Verify that we can handle up to max function args} -body {
+test dec_mult-1.7 {Verify that we can handle up to max function args} -body {
   set values {
     1.0 1.4 1.2 1.1 1.0 1.1 1.2 1.3 1.1 2.0 1.5 2.3 1.4 2.2 1.2 2.3 2.5 1.2 2.0
     2.1 1.4 2.3 1.1 1.2 2.0 1.4 2.2 2.2 1.4 1.3 1.4 2.0 1.4 2.1 1.0 1.1 2.1 2.4
@@ -133,7 +133,7 @@ test max_args {Verify that we can handle up to max function args} -body {
 } -output {} -result {}
 
 
-test invalid {Verify parse error on non-numeric args} -body {
+test dec_mult-1.8 {Verify parse error on non-numeric args} -body {
   db eval {select dec_mult('3.2', '5.6', 'fred');}
 } -returnCodes 1 -result $SqliteFormat
 

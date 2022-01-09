@@ -6,3 +6,6 @@ tclsh64 testall.tcl x64 debug
 tclsh64 testall.tcl x64 release
 tclsh32 testall.tcl x86 debug
 tclsh32 testall.tcl x86 release
+tclsh64 ./BuildTest/testAllBuilds.tcl
+rmdir /s /q ../Output
+rmdir /s /q ../Intermediate

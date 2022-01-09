@@ -1,0 +1,53 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the dec_pow() function using UTF-16 database encoding
+#
+#===============================================================================  
+
+source errors.tcl
+setup_16 db
+       
+
+test dec_pow-2.0 {Verify NULL result with lhs arg NULL} -body {
+  return [db eval {select dec_pow(NULL, 2.0);}]
+} -result NULL
+
+
+test dec_pow-2.1 {Verify NULL result with rhs arg NULL} -body {
+  return [db eval {select dec_pow('23.33', NULL);}]
+} -result NULL
+
+
+test dec_pow-2.2 {Verify NULL result with Nan} -body {
+  return [db eval {select dec_pow('-3.20', 0.3);}]
+} -result NULL
+
+
+test dec_pow-2.3 {Verify NULL result with +Inf} -body {
+  return [db eval {select dec_pow('0', -2.0);}]
+} -result NULL
+
+
+test dec_pow-2.5 {Verify normal result} -body {
+  return [db eval {select dec_pow('6.325', 2.0);}]
+} -result 40.0056
+
+
+test dec_pow-2.6 {Verify error on overflow} -body {
+  db eval {select dec_pow('325698541254785412547854125', 6.0);}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test dec_pow-2.7 {Verify error on invalid input} -body {
+  db eval {select dec_pow('fred', 3.2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

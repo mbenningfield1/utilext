@@ -14,5 +14,5 @@ using namespace System::Security::Permissions;
 [assembly:AssemblyCopyrightAttribute(L"Public Domain")];
 [assembly:AssemblyTrademarkAttribute(L"")];
 [assembly:AssemblyCultureAttribute(L"")];
-[assembly:AssemblyVersionAttribute("3.36.0.0")];
+[assembly:AssemblyVersionAttribute("3.37.2.0")];
 [assembly:ComVisible(false)];

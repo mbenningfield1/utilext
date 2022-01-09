@@ -6,7 +6,7 @@
 #
 #===============================================================================
 #
-# Tests for the () function
+# Tests for the dec_floor() function
 #
 #===============================================================================
 
@@ -14,37 +14,37 @@ source errors.tcl
 setup db
 
 
-test null {Verify NULL return on NULL arg} -body {
+test dec_floor-1.0 {Verify NULL return on NULL arg} -body {
   return [elem0 [db eval {select dec_floor(NULL);}]]
 } -result NULL
 
 
-test min {Verify correct answer with min Decimal value.} -body {
+test dec_floor-1.1 {Verify correct answer with min Decimal value.} -body {
   return [elem0 [db eval {select dec_floor(:DEC_MIN);}]]
 } -result "$DEC_MIN"
 
 
-test max {Verify correct answer with max Decimal value.} -body {
+test dec_floor-1.2 {Verify correct answer with max Decimal value.} -body {
   return [elem0 [db eval {select dec_floor(:DEC_MAX);}]]
 } -result "$DEC_MAX"
 
 
-test normal_pos {Verify correct answer with positive number} -body {
+test dec_floor-1.3 {Verify correct answer with positive number} -body {
   return [elem0 [db eval {select dec_floor('8.32');}]]
 } -result 8
 
 
-test normal_neg {Verify correct answer with negative number} -body {
+test dec_floor-1.4 {Verify correct answer with negative number} -body {
   return [elem0 [db eval {select dec_floor('-3.589');}]]
 } -result -4
 
 
-test invalid {Verify parse error on non-numeric arg} -body {
+test dec_floor-1.5 {Verify parse error on non-numeric arg} -body {
   db eval {select dec_floor('fred');}
 } -returnCodes 1 -result $SqliteFormat
 
 
-test range {Verify parse error on too large decimal arg} -body {
+test dec_floor-1.6 {Verify parse error on too large decimal arg} -body {
   db eval {select dec_floor('7922816251426433759354395033543');}
 } -returnCodes 1 -result $SqliteFormat
 

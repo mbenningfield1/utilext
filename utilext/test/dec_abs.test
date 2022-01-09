@@ -14,7 +14,7 @@ source errors.tcl
 setup db
 
 
-test formats {Test the various positive and negative numeric formats} -body {
+test dec_abs-1.0 {Test the various positive and negative numeric formats} -body {
   set formats {
     1.0 -1.0 001.0 -001.0 (1.0) (01.0) 1.0e3 -1.0e3 1.0E3 001.0e3 -001.0e3 1.0e+3
     -1.0e+3 1.0e-3 -1.0e-3 $1.0 -$1.0 ($1.0) $(1.0) 1 -1 01 -01 $01.0 -$01.0
@@ -37,25 +37,26 @@ test formats {Test the various positive and negative numeric formats} -body {
 # Verifies that a float argument is converted to text and recognized; a float
 # value that is only approximately converted to text will produce the wrong
 # result
-test real {Verify float conversion} -body {
+test dec_abs-1.1 {Verify float conversion} -body {
   return [elem0 [db eval {select dec_abs(-1.34);}]]
 } -result 1.34
 
 
-test int {Verify integer conversion} -body {
+test dec_abs-1.2 {Verify integer conversion} -body {
   return [elem0 [db eval {select dec_abs(-2);}]]
 } -result 2
 
 
-test parse_invalid {Verify parse error on non-numeric input} -body {
+test dec_abs-1.3 {Verify parse error on non-numeric input} -body {
   db eval {select dec_abs('fred');}
 } -returnCodes 1 -result $SqliteFormat
 
 
-test parse_range {Verify parse error on input too large} -body {
+test dec_abs-1.4 {Verify parse error on input too large} -body {
   db eval {select dec_abs('236598745842154879568954125489');}
 } -returnCodes 1 -result $SqliteFormat
 
 
 db close
 tcltest::cleanupTests
+

@@ -1,0 +1,67 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_str() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test bigint_str-1.0 {Verify NULL return with NULL arg} -body {
+  return [db eval {select bigint_str(NULL);}]
+} -result NULL
+
+
+test bigint_str-1.1 {Verify valid INTEGER value succeeds} -body {
+  # 0x362 is 866
+  return [db eval {select bigint_str(362);}]
+} -result 866
+
+
+test bigint_str-1.2 {Verify invalid INTEGER value fails} -body {
+  db eval {select bigint_str(-32);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_str-1.3 {Verify REAL arg fails} -body {
+  db eval {select bigint_str(45.65);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_str-1.4 {Verify valid BLOB value succeeds} -body {
+  # 0x30334537 is '03E7'
+  return [db eval {select bigint_str(X'30334537');}]
+} -result 999
+
+
+test bigint_str-1.5 {Verify invalid BLOB value fails} -body {
+  db eval {select bigint_str(X'2A3B4C');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_str-1.6 {Verify invalid TEXT value fails} -body {
+  db eval {select bigint_str('fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_str-1.7 {Verify normal result} -body {
+  # 0x4A5B is 19035
+  return [db eval {select bigint_str('4A5B');}]
+} -result 19035
+
+
+test bigint_str-1.8 {Verify normal result for negative number} -body {
+  #0xFD6E is -658
+  return [db eval {select bigint_str('FD6E');}]
+} -result -658
+
+
+db close
+tcltest::cleanupTests

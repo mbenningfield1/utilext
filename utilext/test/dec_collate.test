@@ -14,7 +14,7 @@ source errors.tcl
 setup db
 
 
-test asc {Verify proper sequence in ascending order} -body {
+test dec_collate-1.0 {Verify proper sequence in ascending order} -body {
   db eval {create table t1 (value TEXT COLLATE decimal);
     insert into t1 values ('34517.43208'), ('4626.29009'), ('18197.12445'),
       ('2523.33396'),   ('3405.29032'),  ('4024.3501'),   ('24142.31724'),
@@ -36,7 +36,7 @@ test asc {Verify proper sequence in ascending order} -body {
 } -result {1}
 
 
-test desc {Verify proper sequence in descending order} -body {
+test dec_collate-1.1 {Verify proper sequence in descending order} -body {
   set results "44733.21 44733.17018 42395.10857 41757.10318 37014.38642
     36564.11098 34517.43208 32903.13457 32817.30358 30413.35165 29754.23419
     28329.41435 27585.25733 27119.22809 24142.31724 23056.21157 19517.34853
@@ -48,7 +48,7 @@ test desc {Verify proper sequence in descending order} -body {
 } -result {1}
 
 
-test nulls_asc {Verify sort with nulls in ascending order} -body {
+test dec_collate-1.2 {Verify sort with nulls in ascending order} -body {
   db eval {create table t2 (value TEXT COLLATE decimal);
     insert into t2 values ('34517.43208'), ('4626.29009'), ('18197.12445'),
       ('2523.33396'),  ('3405.29032'),   ('4024.3501'),   (NULL),
@@ -71,7 +71,7 @@ test nulls_asc {Verify sort with nulls in ascending order} -body {
 } -result {1}
 
 
-test nulls_desc {Verify sort with nulls in descending order} -body {
+test dec_collate-1.3 {Verify sort with nulls in descending order} -body {
   set results "44733.21 44733.17018 42395.10857 41757.10318 37014.38642
     36564.11098 34517.43208 32903.13457 32817.30358 30413.35165 29754.23419
     28329.41435 27585.25733 27119.22809 24142.31724 23056.21157 19517.34853
@@ -83,7 +83,7 @@ test nulls_desc {Verify sort with nulls in descending order} -body {
 } -result {1}
 
 
-test invalid_asc {Verify sort with invalid values in ascending order} -body {
+test dec_collate-1.4 {Verify sort with invalid values in ascending order} -body {
   db eval {create table t3 (value TEXT COLLATE decimal);
     insert into t3 values ('34517.43208'), ('4626.29009'), ('18197.12445'),
       ('2523.33396'),  ('3405.29032'),  ('4024.3501'),   ('John'),
@@ -106,7 +106,7 @@ test invalid_asc {Verify sort with invalid values in ascending order} -body {
 } -result {1}
 
 
-test invalid_desc {Verify sort with invalid values in descending order} -body {
+test dec_collate-1.5 {Verify sort with invalid values in descending order} -body {
   set results "44733.21 44733.17018 42395.10857 41757.10318 37014.38642
     36564.11098 34517.43208 32903.13457 32817.30358 30413.35165 29754.23419
     28329.41435 27585.25733 27119.22809 24142.31724 23056.21157 19517.34853
@@ -118,19 +118,49 @@ test invalid_desc {Verify sort with invalid values in descending order} -body {
 } -result {1}
 
 
-test min {Verify min aggregate works with valid data and collation} -body {
+test dec_collate-1.6 {Verify min aggregate works with valid data and collation} -body {
   return [elem0 [db eval {select min(value) from t1;}]]
 } -result -43774.18559
 
 
-test max {Verify max aggregate works with valid data and collation} -body {
+test dec_collate-1.7 {Verify max aggregate works with valid data and collation} -body {
   return [elem0 [db eval {select max(value) from t1;}]]
 } -result 44733.21
 
 
-test min_invalid {Verify min aggregate returns useless data with invalid values} -body {
+test dec_collate-1.8 {Verify min aggregate returns useless data with invalid values} -body {
   return [elem0 [db eval {select min(value) from t3;}]]
 } -result George
+
+
+test dec_collate-1.9 {Verify < operator works as expected} -body {
+  db eval {create table t4 (value TEXT COLLATE DECIMAL);
+    insert into t4 values ('3405.29032'), ('32817.30358'), ('10306.41168'),
+    ('6212.31294'),  ('75.25371');
+  }
+  set results "75.25371 3405.29032 6212.31294"
+  set outcome [db eval {select value from t4 where value < '10000' order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-1.10 {Verify > operator works as expected} -body {
+  db eval {create table t5 (value TEXT COLLATE DECIMAL);
+    insert into t5 values ('3405.29032'), ('32817.30358'), ('10306.41168'),
+    ('6212.31294'),  ('75.25371');
+  }
+  set results "6212.31294 10306.41168 32817.30358"
+  set outcome [db eval {select value from t5 where value > '6000' order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-1.11 {Verify == operator works as expected} -body {
+  db eval {create table t6 (value TEXT COLLATE DECIMAL);
+    insert into t6 values ('234.4443'), ('3456.222'), ('2.33');
+  }
+  return [db eval {select value from t6 where value == '234.4443';}]
+} -result 234.4443
 
 
 db close

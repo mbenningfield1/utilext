@@ -6,58 +6,37 @@
 #
 #===============================================================================
 #
-# Tests for the 2 argument dec_round() function
+# Tests for the 1 arg dec_round() function using UTF-16 database encoding
 #
 #===============================================================================
 
 source errors.tcl
-setup db
+setup_16 db
 
 
-test null {Verify NULL return with NULL value} -body {
-  return [elem0 [db eval {select dec_round(NULL, 3);}]]
+test dec_round-2.0 {Verify NULL return with NULL arg} -body {
+  return [elem0 [db eval {select dec_round(NULL);}]]
 } -result NULL
 
 
-test normal {Round a decimal to n decimal places} -body {
-  return [elem0 [db eval {select dec_round('4.5673', 2);}]]
-} -result 4.57
+test dec_round-2.1 {Round a decimal number} -body {
+  return [elem0 [db eval {select dec_round('3.217459');}]]
+} -result 3
 
 
-test non_numeric_digits {Verify that a non-numeric digit arg converts to 0} -body {
-  return [elem0 [db eval {select dec_round('3.655', 'fred');}]]
+test dec_round-2.2 {Verify default rounding down} -body {
+  return [elem0 [db eval {select dec_round('2.5');}]]
+} -result 2
+
+
+test dec_round-2.3 {Verify default rounding up} -body {
+  return [elem0 [db eval {select dec_round('3.5');}]]
 } -result 4
 
 
-
-test null_digits {Verify that a NULL digit value converts to 0} -body {
-  return [elem0 [db eval {select dec_round('4.244', NULL);}]]
-} -result 4
-
-
-test half_even {Verify default rounding down with digits} -body {
-  return [elem0 [db eval {select dec_round('2.345', 2);}]]
-} -result 2.34
-
-
-test half_odd {Verify default rounding up with digits} -body {
-  return [elem0 [db eval {select dec_round('2.355', 2);}]]
-} -result 2.36
-
-
-test invalid_value {Verify parse error with non-numeric value} -body {
-  db eval {select dec_round('fred', 3);}
+test dec_round-2.4 {Verify parse error on non-numeric arg} -body {
+  db eval {select dec_round('fred');}
 } -returnCodes 1 -result $SqliteFormat
-
-
-test prec_low {Verify precision error with low digits} -body {
-  db eval {select dec_round('3.456', -1);}
-} -returnCodes 1 -result $SqliteMisuse
-
-
-test prec_high {Verify precision error with high digits} -body {
-  db eval {select dec_round('43.4567', 29);}
-} -returnCodes 1 -result $SqliteMisuse
 
 
 db close

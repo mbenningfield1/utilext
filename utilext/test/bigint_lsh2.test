@@ -1,0 +1,64 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_lsh() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_lsh-2.0 {Verify NULL return with NULL value arg} -body {
+  return [db eval {select bigint_lsh(NULL, 3);}]
+} -result NULL
+
+
+test bigint_lsh-2.1 {Verify NULL return with NULL shift arg} -body {
+  return [db eval {select bigint_lsh('197B', NULL);}]
+} -result NULL
+
+
+test bigint_lsh-2.2 {Verify valid INTEGER value succeeds} -body {
+  return [db eval {select bigint_lsh(6325, 2);}]
+} -result 018C94
+
+
+test bigint_lsh-2.3 {Verify invalid INTEGER value fails} -body {
+  db eval {select bigint_lsh(-34, 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_lsh-2.4 {Verify REAL arg fails} -body {
+  db eval {select bigint_lsh(34.5, 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_lsh-2.5 {Verify valid BLOB value succeeds} -body {
+  # 0x430042003800 is CB8 in utf16
+  return [db eval {select bigint_lsh(X'430042003800', 3);}]
+} -result E5C0
+
+
+test bigint_lsh-2.6 {Verify invalid BLOB value fails} -body {
+  db eval {select bigint_lsh(X'2a3b4c', 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_lsh-2.7 {Verify invalid TEXT value fails} -body {
+  db eval {select bigint_lsh('fred', 3);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_lsh-2.8 {Verify valid hex value} -body {
+  return [db eval {select bigint_lsh('CB8', 3);}]
+} -result E5C0
+
+
+db close
+tcltest::cleanupTests

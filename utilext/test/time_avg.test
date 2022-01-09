@@ -6,87 +6,49 @@
 #
 #===============================================================================
 #
-# Tests for the aggregate timespan_avg() window function
+# Tests for the multi-arg timespan_avg() function
 #
 #===============================================================================
-
+ 
 source errors.tcl
 setup db
 
 
-test null_all {Verify 0 return with all args NULL} -body {
-  db eval {drop table if exists t1;
-    create table t1 (times INTEGER);
-    insert into t1 values (NULL), (NULL), (NULL), (NULL);
-  }
-  return [elem0 [db eval {select timespan_avg(times) from t1;}]]
+test time_avg-1.0 {Verify a 0 return for all-NULL args} -body {
+  return [elem0 [db eval {select timespan_avg(NULL, NULL, NULL);}]]
 } -result 0
 
 
-test null_any {Verify NULL args are ignored with non-NULL args} -body {
-  db eval {drop table if exists t1;
-    create table t1 (times INTEGER);
-    insert into t1 values (772672509), (NULL), (NULL),
-                          (19509582), (148801716), (118816861);
-  }
-  return [elem0 [db eval {select timespan_avg(times) from t1;}]]
-} -result 264950167
+test time_avg-1.1 {Verify a NULL arg is ignored if non-NULL args are present} -body {
+  return [elem0 [db eval {select timespan_avg(NULL, 19509582, NULL, 148801716);}]]
+} -result 84155649
 
 
-test pos_overflow {Verify that positive overflow results in error} -body {
-  db eval {drop table if exists t1;
-  create table t1 (times INTEGER);
-  insert into t1 values (-4611686018427387904), (-4611686018427387904), (-100);
-  }
-  db eval {select timespan_avg(times) from t1;}
-} -returnCodes 1 -result $SqliteTooBig
-
-
-test neg_overflow {Verify that negative overflow results in error} -body {
-  db eval {drop table if exists t1;
-  create table t1 (times INTEGER);
-  insert into t1 values (4611686018427387904), (4611686018427387904), (100);
-  }
-  db eval {select timespan_avg(times) from t1;}
-} -returnCodes 1 -result $SqliteTooBig
-
-
-test no_rows {Verify correct result with zero row count} -body {
-  db eval {drop table if exists t1;
-    create table t1 (a INTEGER);
-    insert into t1 values (123), (234), (345), (456), (567);
-  }
-  return [elem0 [db eval {select timespan_avg(a) from t1 where a > 1000;}]]
+test time_avg-1.2 {Verify 0 return with zero arguments} -body {
+  return [elem0 [db eval {select timespan_avg();}]]
 } -result 0
 
 
-if {[db version] >= $MinVersionWindow} {
-  test window {Verify window function} -body {
-    if {[db version] < "3.25.0"} {return}
-    db eval {drop table if exists t1;
-    create table t1 (x, y);
-    insert into t1 values ('a', 444487607), ('b', 596084398), ('c', 107217565),
-                          ('d', 662137852), ('e', 268647448), ('f', -444704664),
-                          ('g', 931125868), ('h', 565488857);
-    }
-    set avgs {520286002 382596523 455146605 346000955 162026878 251689550 350636687 748307362}
-    set results [db eval {
-      SELECT x, timespan_avg(y) OVER (
-        ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
-      ) AS total
-      FROM t1 ORDER BY x;
-    }]
-    set i 0
-    foreach {k j} $results {
-      if {$j != [lindex $avgs $i]} {puts "test_window failed with i = $i"}
-      incr i;
-    }
-  } -output {} -result {}
-} else {
-  test window {Empty Test} -constraints noWindowFuncs -body {
-  } -result {}
-}
+test time_avg-1.3 {Take the average of some numbers} -body {
+  return [elem0 [db eval {select timespan_avg(3256984, 9845784, 365895415);}]]
+} -result 126332727
+
+
+test time_avg-1.4 {Verify that positive overflow results in error} -body {
+  set c [db eval {select timespan_avg(-4611686018427387904, -4611686018427387904, -100);}]
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test time_avg-1.5 {Verify that negative overflow results in error} -body {
+  set c [db eval {select timespan_avg(4611686018427387904, 4611686018427387904, 100);}]
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test time_avg-1.6 {Verify non-numeric input is converted to 0} -body {
+  return [db eval {select timespan_avg(456, 234, 567, 'fred');}]
+} -result 314
 
 
 db close
 tcltest::cleanupTests
+

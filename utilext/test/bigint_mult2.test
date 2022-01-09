@@ -1,0 +1,81 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_mult() function using UTF-16 database encoding
+#
+#===============================================================================  
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_mult-2.0 {Verify NULL return all args NULL} -body {
+  return [db eval {select bigint_mult(NULL, NULL, NULL);}]
+} -result NULL
+
+
+test bigint_mult-2.1 {Verify NULL result with 0 args} -body {
+  return [db eval {select bigint_mult();}]
+} -result NULL
+
+
+test bigint_mult-2.2 {Verify valid INTEGER value succeeds} -body {
+  set a 1ab
+  return [db eval {select bigint_mult($a, 325);}]
+} -result 053EB7
+
+
+test bigint_mult-2.3 {Verify invalid INTEGER value fails} -body {
+  db eval {select bigint_mult('1ab', -34);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_mult-2.4 {Verify REAL arg fails} -body {
+  db eval {select bigint_mult('1ab', 45.5);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_mult-2.5 {Verify valid BLOB value succeeds} -body {
+  set a 01c8
+  set b 0145
+  # 0x37004100 is 7A in utf16
+  return [db eval {select bigint_mult($a, $b, X'37004100');}]
+} -result 0113E290
+
+
+test bigint_mult-2.6 {Verify invalid BLOB value fails} -body {
+  #2a3b4c is garbage in utf16
+  db eval {select bigint_mult('0145', X'2a3b4c');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_mult-2.7 {Verify invalid TEXT value fails} -body {
+  db eval {select bigint_mult('1ab', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_mult-2.8 {Verify normal result} -body {
+  set a 017C
+  set b 0145
+  set c 003E
+  return [db eval {select bigint_mult($a, $b, $c);}]
+} -result 74D628
+
+
+test bigint_mult-2.9 {Verify result with 1 arg} -body {
+  return [db eval {select bigint_mult('1ab');}]
+} -result 01AB
+
+
+test bigint_mult-2.10 {Verify result with 1 NULL arg} -body {
+  return [db eval {select bigint_mult(NULL);}]
+} -result NULL
+
+
+db close
+tcltest::cleanupTests

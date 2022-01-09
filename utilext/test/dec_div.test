@@ -14,37 +14,37 @@ source errors.tcl
 setup db
 
 
-test lhs_null {Verify NULL return for NULL lhs arg} -body {
+test dec_div-1.0 {Verify NULL return for NULL lhs arg} -body {
   return [elem0 [db eval {select dec_div(NULL, '3.2');}]]
 } -result NULL
 
 
-test rhs_null {Verify NULL return for NULL rhs arg} -body {
+test dec_div-1.1 {Verify NULL return for NULL rhs arg} -body {
   return [elem0 [db eval {select dec_div('3.2', NULL);}]]
 } -result NULL
 
 
-test normal {Divide some numbers} -body {
+test dec_div-1.2 {Divide some numbers} -body {
   return [elem0 [db eval {select dec_div('4.468', '2.34');}]]
 } -result 1.9094017094017094017094017094
 
 
-test lhs_invalid {Verify parse error on non-numeric lhs arg} -body {
+test dec_div-1.3 {Verify parse error on non-numeric lhs arg} -body {
   db eval {select dec_div('fred', '2.3');}
 } -returnCodes 1 -result $SqliteFormat
 
 
-test rhs_invalid {Verify parse error on non-numeric rhs arg} -body {
+test dec_div-1.4 {Verify parse error on non-numeric rhs arg} -body {
   db eval {select dec_div('3.4', 'fred');}
 } -returnCodes 1 -result $SqliteFormat
 
 
-test div_zero {Verify div by zero error} -body {
+test dec_div-1.5 {Verify div by zero error} -body {
   db eval {select dec_div('3.2', '0.0');}
 } -returnCodes 1 -result $SqliteError
 
 
-test range {Verify out of range error on result} -body {
+test dec_div-1.6 {Verify out of range error on result} -body {
   db eval {select dec_div(:DEC_MAX, '0.00004');}
 } -returnCodes 1 -result $SqliteTooBig
 

@@ -1,0 +1,60 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_not() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test bigint_not-1.0 {Verify fails with REAL value} -body {
+  set c [db eval {select bigint_not(34.5);}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_not-1.1 {Verify INTEGER value converts to hex string} -body {
+  return [db eval {select bigint_not(345);}]
+} -result FCBA
+
+
+test bigint_not-1.2 {Verify fails with unconvertible INTEGER} -body {
+  return [db eval {select bigint_not(-34);}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_not-1.3 {Verify fails with invalid TEXT value} -body {
+  set c [db eval {select bigint_not('fred');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_not-1.4 {Verify good result with valid input value} -body {
+  return [db eval {select bigint_not('4A2B3C');}]
+} -result B5D4C3
+
+
+test bigint_not-1.5 {Verify fails with bad BLOB value} -body {
+  # 0x2a3b4c is "*;L"
+  set c [db eval {select bigint_not(X'2A3B4C');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_not-1.6 {Verify a good BLOB value succeeds} -body {
+  # 0x326133623463 is "2a3b4c"
+  return [db eval {select bigint_not(X'326133623463');}]
+} -result D5C4B3
+
+
+test bigint_not-1.7 {Verify returns NULL with NULL arg} -body {
+  return [db eval {select bigint_not(NULL);}]
+} -result {NULL}
+
+
+db close
+tcltest::cleanupTests

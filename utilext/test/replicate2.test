@@ -1,0 +1,62 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the replicate() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test str_replicate-2.0 {Verify NULL return with NULL source arg} -body {
+  return [elem0 [db eval {select replicate(NULL, 3);}]]
+} -result NULL
+
+
+test str_replicate-2.1 {Verify NULL return with NULL count arg} -body {
+  return [elem0 [db eval {select replicate('ab', NULL);}]]
+} -result NULL
+
+
+test str_replicate-2.2 {Verify empty return with empty source arg} -body {
+  return [elem0 [db eval {select replicate('', 3);}]]
+} -result {}
+
+
+test str_replicate-2.3 {Verify empty return with zero count arg} -body {
+  return [elem0 [db eval {select replicate('ab', 0);}]]
+} -result {}
+
+
+test str_replicate-2.4 {Verify correct result with single character source} -body {
+  return [elem0 [db eval {select replicate('b', 6);}]]
+} -result bbbbbb
+
+
+test str_replicate-2.5 {Verify result with string source arg} -body {
+  return [elem0 [db eval {select replicate('abc', 4);}]]
+} -result abcabcabcabc
+
+
+test str_replicate-2.6 {Verify error with too low count arg} -body {
+  db eval {select replicate('abb', -1);}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+test str_replicate-2.7 {Verify result with unicode chars} -body {
+  setup_unicode16 pdb
+  set a [pdb eval {select replicate(source, 4) from test_replicate;}]
+  set b [pdb eval {select result from test_replicate;}]
+  pdb close
+  return [listEquals $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

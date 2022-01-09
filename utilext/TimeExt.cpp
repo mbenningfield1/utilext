@@ -24,17 +24,17 @@ using namespace System;
 
 namespace UtilityExtensions {
 
-  int TimeExt::TimespanAddTo(DbDate *pDate, bool isWide, Int64 time) {
+  int TimeExt::TimespanAddTo(i64 time, DbDate *pDate, DbDate *pResult) {
     DateTime dt = DateTime::MinValue;
     TimeSpan ts = TimeSpan::MinValue;
     switch (pDate->type)
     {
-      case TIMETYPE_UNIX:
+      case SQLITE_INTEGER:
         try {
           dt = DateTimeFromUnix(pDate->unix);
           ts = TimeSpan(time);
           dt += ts;
-          pDate->unix = ToUnixTime(dt);
+          pResult->unix = ToUnixTime(dt);
         }
         catch (ArgumentOutOfRangeException^) {
           return ERR_TIME_PARSE;
@@ -43,13 +43,13 @@ namespace UtilityExtensions {
           return ERR_TIME_UNIX_RANGE;
         }
         break;
-      case TIMETYPE_JULIAN:
+      case SQLITE_FLOAT:
         try
         {
           dt = DateTimeFromJulian(pDate->julian);
           ts = TimeSpan(time);
           dt += ts;
-          pDate->julian = ToJulianDay(dt);
+          pResult->julian = ToJulianDay(dt);
         }
         catch (ArgumentOutOfRangeException^) {
           return ERR_TIME_PARSE;
@@ -58,14 +58,15 @@ namespace UtilityExtensions {
           return ERR_TIME_JD_RANGE;
         }
         break;
-      case TIMETYPE_ISO:
+      case SQLITE_TEXT:
         try
         {
-          String^ s = Common::GetString(pDate->iso.pText, pDate->iso.cb, isWide);
+          String^ s = Common::GetString(&pDate->iso);
           dt = DateTime::Parse(s);
           ts = TimeSpan(time);
           dt += ts;
-          Common::SetString(dt.ToString(DATE_FORMAT), isWide, (void**)&pDate->iso.pText);
+          Common::SetString(dt.ToString(DATE_FORMAT),
+                            pDate->iso.isWide, &pResult->iso);
         }
         catch (Exception^) {
           return ERR_TIME_PARSE;
@@ -77,10 +78,10 @@ namespace UtilityExtensions {
     return RESULT_OK;
   }
 
-  int TimeExt::TimespanCreate(DbDate *pDate, bool isWide, Int64 *pResult) {
+  int TimeExt::TimespanCreate(DbDate *pDate, i64 *pResult) {
     
     switch (pDate->type) {
-      case TIMETYPE_UNIX:
+      case SQLITE_INTEGER:
         if (pDate->unix < MIN_TS_SECONDS || pDate->unix > MAX_TS_SECONDS) {
           return ERR_TIME_INVALID;
         }
@@ -91,7 +92,7 @@ namespace UtilityExtensions {
           return ERR_TIME_INVALID;
         }
         break;
-      case TIMETYPE_JULIAN: {
+      case SQLITE_FLOAT: {
         double days = pDate->julian;
         if (days < MIN_TS_DAYS || days > MAX_TS_DAYS) {
           return ERR_TIME_INVALID;
@@ -117,9 +118,9 @@ namespace UtilityExtensions {
         }
         break;
       } /* case block with initializer */
-      case TIMETYPE_ISO:
+      case SQLITE_TEXT:
         try {
-          String^ ts = Common::GetString(&pDate->iso, isWide);
+          String^ ts = Common::GetString(&pDate->iso);
           *pResult = TimeSpan::Parse(ts).Ticks;
         }
         catch (FormatException^) {
@@ -135,7 +136,7 @@ namespace UtilityExtensions {
     return RESULT_OK;
   }
 
-  int TimeExt::TimespanCreate(int argc, int *pArgs, Int64 *pResult) {
+  int TimeExt::TimespanCreate(int argc, int *pArgs, i64 *pResult) {
     // argc is 3, 4, or 5
     try {
       if (argc == 3) {
@@ -154,13 +155,13 @@ namespace UtilityExtensions {
     }
   }
 
-  int TimeExt::TimespanDiff(DbDate *pLeft, DbDate *pRight, bool isWide, Int64 *pResult)
+  int TimeExt::TimespanDiff(DbDate *pLeft, DbDate *pRight, i64 *pResult)
   {
     DateTime dt1 = DateTime::MinValue;
     DateTime dt2 = DateTime::MinValue;
 
     switch (pLeft->type) {
-      case TIMETYPE_UNIX:
+      case SQLITE_INTEGER:
         try {
           dt1 = DateTimeFromUnix(pLeft->unix);
         }
@@ -168,7 +169,7 @@ namespace UtilityExtensions {
           return ERR_TIME_UNIX_RANGE;
         }
         break;
-      case TIMETYPE_JULIAN:
+      case SQLITE_FLOAT:
         try {
           dt1 = DateTimeFromJulian(pLeft->julian);
         }
@@ -176,9 +177,9 @@ namespace UtilityExtensions {
           return ERR_TIME_JD_RANGE;
         }
         break;
-      case TIMETYPE_ISO:
+      case SQLITE_TEXT:
         try {
-          dt1 = DateTime::Parse(Common::GetString(pLeft->iso.pText, pLeft->iso.cb, isWide));
+          dt1 = DateTime::Parse(Common::GetString(&pLeft->iso));
         }
         catch (Exception^) {
           return ERR_TIME_PARSE;
@@ -186,7 +187,7 @@ namespace UtilityExtensions {
         break;
     }
     switch (pRight->type) {
-      case TIMETYPE_UNIX:
+      case SQLITE_INTEGER:
         try {
           dt2 = DateTimeFromUnix(pRight->unix);
         }
@@ -194,7 +195,7 @@ namespace UtilityExtensions {
           return ERR_TIME_UNIX_RANGE;
         }
         break;
-      case TIMETYPE_JULIAN:
+      case SQLITE_FLOAT:
         try {
           dt2 = DateTimeFromJulian(pRight->julian);
         }
@@ -202,9 +203,9 @@ namespace UtilityExtensions {
           return ERR_TIME_JD_RANGE;
         }
         break;
-      case TIMETYPE_ISO:
+      case SQLITE_TEXT:
         try {
-          dt2 = DateTime::Parse(Common::GetString(pRight->iso.pText, pRight->iso.cb, isWide));
+          dt2 = DateTime::Parse(Common::GetString(&pRight->iso));
         }
         catch (Exception^) {
           return ERR_TIME_PARSE;
@@ -215,15 +216,15 @@ namespace UtilityExtensions {
     return RESULT_OK;
   }
 
-  int TimeExt::TimespanStr(Int64 time, bool isWide, void **zResult)
+  int TimeExt::TimespanStr(i64 time, bool isWide, DbStr *pResult)
   {
     TimeSpan ts = TimeSpan(time);
     String^ str = ts.ToString(); // default "c" format
-    return Common::SetString(str, isWide, zResult);
+    return Common::SetString(str, isWide, pResult);
   }
 
-  Int64 TimeExt::ToUnixTime(DateTime dt) {
-    Int64 ticks = dt.ToUniversalTime().Ticks;
+  i64 TimeExt::ToUnixTime(DateTime dt) {
+    i64 ticks = dt.ToUniversalTime().Ticks;
 
     // unix time deals in whole seconds, so strip the milliseconds
     ticks -= dt.Millisecond * TimeSpan::TicksPerMillisecond;
@@ -231,7 +232,7 @@ namespace UtilityExtensions {
     return (ticks - UNIX_TICKS) / TimeSpan::TicksPerSecond;
   }
 
-  DateTime TimeExt::DateTimeFromUnix(Int64 unixTime) {
+  DateTime TimeExt::DateTimeFromUnix(i64 unixTime) {
     if (unixTime < MIN_UNIX || unixTime > MAX_UNIX) {
       throw gcnew ArgumentException("The specified Unix time is outside the range of valid values.");
     }
@@ -242,7 +243,7 @@ namespace UtilityExtensions {
       // the Julian day calculation from the SQLite source.
       int Y, M, D, A, B, X1, X2;
       int h, m, s, ms;
-      Int64 iJD;
+      i64 iJD;
 
       dt = dt.ToUniversalTime();
       Y = dt.Year;
@@ -261,7 +262,7 @@ namespace UtilityExtensions {
       B = 2 - A + (A / 4);
       X1 = 36525 * (Y + 4716) / 100;
       X2 = 306001 * (M + 1) / 10000;
-      iJD = (Int64)((X1 + X2 + D + B - 1524.5) * 86400000);
+      iJD = (i64)((X1 + X2 + D + B - 1524.5) * 86400000);
 
       //
       // NOTE:  The DateTime struct in the sqlite core stores seconds and
@@ -295,7 +296,7 @@ namespace UtilityExtensions {
       int day, year, mo, h, m, s, ms;
 
       // NOTE:    We're rounding here to avoid the occasional 'string of 9's
-      Int64 iJD = (Int64)Math::Round((jd * 86400000.0));
+      i64 iJD = (i64)Math::Round((jd * 86400000.0));
       if (iJD < MIN_INT_JD || iJD > MAX_INT_JD) {
         throw gcnew ArgumentException("The specified Julian day is outside the range of valid values.");
       }
@@ -333,4 +334,4 @@ namespace UtilityExtensions {
     }
 }
 
-#endif // !UTILEXT_OMIT_TIME
+#endif /* !UTILEXT_OMIT_TIME */

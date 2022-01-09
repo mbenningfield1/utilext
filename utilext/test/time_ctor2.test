@@ -1,0 +1,53 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the timespan() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test time_ctor-2.0 {Verify correct result with ISO string arg in UTF-8 encoding} -body {
+  return [elem0 [db eval {select timespan('1.03:04:05');}]]
+} -result 974450000000
+
+
+test time_ctor-2.1 {Verify correct result with 'str' function} -body {
+  return [elem0 [db eval {select timespan_str(timespan(12, 3, 23));}]]
+} -result 12:03:23
+
+
+test time_ctor-2.2 {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('10950236521.00:00:00');}
+} -returnCodes 1 -result $SqliteRange
+
+
+test time_ctor-2.3 {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('1.85:04:05');}
+} -returnCodes 1 -result $SqliteRange
+
+test time_ctor-2.4 {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('1.03:64:05');}
+} -returnCodes 1 -result $SqliteRange
+
+
+test time_ctor-2.5 {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('1.03:04:75');}
+} -returnCodes 1 -result $SqliteRange
+
+
+test time_ctor-2.6 {Verify invalid iso arg results in error} -body {
+  db eval {select timespan('1.03:04:05.66523325');}
+} -returnCodes 1 -result $SqliteRange
+
+
+db close
+tcltest::cleanupTests
+

@@ -1,0 +1,64 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_sub() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test bigint_sub-1.0 {Verify NULL return for NULL lhs arg} -body {
+  return [elem0 [db eval {select bigint_sub(NULL, '1C8');}]]
+} -result NULL
+
+
+test bigint_sub-1.1 {Verify NULL return for NULL rhs arg} -body {
+  return [elem0 [db eval {select bigint_sub('1C8', NULL);}]]
+} -result NULL
+
+
+test bigint_sub-1.2 {Subtract some numbers} -body {
+  return [elem0 [db eval {select bigint_sub('1C8', '41');}]]
+} -result 0187
+
+
+test bigint_sub-1.3 {Verify parse error on non-numeric lhs arg} -body {
+  db eval {select bigint_sub('fred', '1C8');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_sub-1.4 {Verify parse error on non-numeric rhs arg} -body {
+  db eval {select bigint_sub('1C8', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_sub-1.5 {Verify valid INTEGER arg works} -body {
+  return [db eval {select bigint_sub('1C8', 32);}]
+} -result 0196
+
+
+test bigint_sub-1.6 {Verify REAL arg fails} -body {
+  db eval {select  bigint_sub('1C8', 3.2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_sub-1.7 {Verify valid BLOB succeeds} -body {
+  # 0x3532 is '52' utf8
+  return [db eval {select bigint_sub('26F', X'3532');}]
+} -result 021D
+
+
+test bigint_sub-1.8 {Verify invalid BLOB fails} -body {
+  db eval {select bigint_sub('26F', X'2A3B4C');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

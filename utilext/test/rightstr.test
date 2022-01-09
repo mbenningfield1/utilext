@@ -1,0 +1,72 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the rightstr() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test str_rightstr-1.0 {Verify NULL return for NULL source arg} -body {
+  return [elem0 [db eval {select rightstr(NULL, 3);}]]
+} -result NULL
+
+
+test str_rightstr-1.1 {Verify source return for NULL length arg} -body {
+  return [elem0 [db eval {select rightstr('Hello World', NULL);}]]
+} -result {Hello World}
+
+
+test str_rightstr-1.2 {Verify source return for over-long length arg} -body {
+  return [elem0 [db eval {select rightstr('Hello World', 14);}]]
+} -result {Hello World}
+
+
+test str_rightstr-1.3 {Verify normal result} -body {
+  return [elem0 [db eval {select rightstr('Hello World', 6);}]]
+} -result { World}
+
+
+test str_rightstr-1.4 {Verify error on too-low length arg} -body {
+  db eval {select rightstr('Hello World', -1);}
+} -returnCodes 1 -result $SqliteMisuse
+
+
+test str_rightstr-1.5 {Verify conversion to int for text length arg} -body {
+  return [elem0 [db eval {select rightstr('Hello World', '4');}]]
+} -result orld
+
+
+test str_rightstr-1.6 {Verify conversion to int for real length arg} -body {
+  return [elem0 [db eval {select rightstr('Hello World', 4.50);}]]
+} -result orld
+
+
+test str_rightstr-1.7 {Verify actual character count with unicode text} -body {
+  setup_unicode8 pdb
+  set a [pdb eval {select rightstr(source, 12) from test_rightstr1;}]
+  set b [pdb eval {select result from test_rightstr1;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+test str_rightstr-1.8 {Verify that a length > char count but < byte count returns input} -body {
+  setup_unicode8 pdb
+  set a [pdb eval {select rightstr(source, 32) from test_rightstr2;}]
+  set b [pdb eval {select result from test_rightstr2;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests
+

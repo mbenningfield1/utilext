@@ -1,0 +1,103 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_avg() multi-arg function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test bigint_avg-1.0 {Verify correct result with 0 args} -body {
+  return [db eval {select bigint_avg();}]
+} -result 0
+
+
+test bigint_avg-1.1 {Verify correct result with all args null} -body {
+  return [db eval {select bigint_avg(NULL, NULL, NULL);}]
+} -result 0
+
+
+test bigint_avg-1.2 {Verify correct result with some args null} -body {
+  set a 197C  ;# 6524
+  set b 0E4A  ;# 3658
+  set c 180F3 ;# 98547
+  return [db eval {select bigint_avg($a, NULL, $b, $c, NULL);}]
+} -result 008D93 ;# 36243
+
+
+test bigint_avg-1.3 {Verify normal result} -body {
+  set a 197C  ;# 6524
+  set b 0E4A  ;# 3658
+  set c 180F3 ;# 98547
+  return [db eval {select bigint_avg($a, $b, $c);}]
+} -result 008D93 ;# 36243
+
+
+test bigint_avg-1.4 {Verify rounding up with positive value} -body {
+  set a 086FA   ;# 34554
+  set b 5BE2    ;# 23522
+  set c 0F26E0  ;# 992992
+  set d 0EA     ;# 234
+  return [db eval {select bigint_avg($a, $b, $c, $d);}]
+} -result 0402AA ;# 262826
+
+
+test bigint_avg-1.5 {Verify rounding up with negative value} -body {
+  set a F7906   ;# -34554
+  set b A41E    ;# -23522
+  set c F0D920  ;# -992992
+  set d F16     ;# -234
+  return [db eval {select bigint_avg($a, $b, $c, $d);}]
+} -result FBFD56 ;# -262826
+
+
+test bigint_avg-1.6 {Verify REAL arg fails} -body {
+  set c [db eval {select bigint_avg('086FA', 34.4);}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_avg-1.7 {Verify valid hex integer arg succeeds} -body {
+  set a 3658  ;# 13912
+  set b 2BA   ;# 698
+  ;# 6386 HEX is 25478
+  return [db eval {select bigint_avg($a, 6386, $b);}]
+} -result 3433 ;# 13363
+
+
+test bigint_avg-1.8 {Verify invalid integer arg fails} -body {
+  set a 3658
+  set b 2BA
+  set c [db eval {select bigint_avg($a, -34, $b);}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_avg-1.9 {Verify non-hex text arg fails} -body {
+  set c [db eval {select bigint_avg('086FA', 'fred');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_avg-1.10 {Verify valid hex string BLOB succeeds} -body {
+  set a 2F4F ;# 12111
+  set b 11ED ;# 4589
+  ;# 0x30453441 is "OE4A", 3658
+  return [db eval {select bigint_avg($a, $b, X'30453441');}]
+} -result 1A82 ;# 6786
+
+
+test bigint_avg-1.11 {Verify invalid hex string BLOB fails} -body {
+  ;# 086FA 34554
+  ;# 0x2A3B4C "*;L"
+ set c [db eval {select bigint_avg('086FA', X'2A3B4C');}]
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests
+

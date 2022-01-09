@@ -1,0 +1,82 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the infilter_i() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test str_infilter-3.0 {Verify NULL return for NULL source arg} -body {
+  return [elem0 [db eval {select infilter_i(NULL, 'aeiou');}]]
+} -result NULL
+
+
+test str_infilter-3.1 {Verify NULL return for NULL match arg} -body {
+  return [elem0 [db eval {select infilter_i('abcde', NULL);}]]
+} -result NULL
+
+
+test str_infilter-3.2 {Verify empty string return for empty source arg} -body {
+  return [elem0 [db eval {select infilter_i('', 'aeiou');}]]
+} -result {}
+
+
+test str_infilter-3.3 {Verify empty string return for empty match arg} -body {
+  return [elem0 [db eval {select infilter_i('abcde', '');}]]
+} -result {}
+
+
+test str_infilter-3.4 {Verify normal matching} -body {
+  return [elem0 [db eval {select infilter_i('albuquerque', 'aeiou');}]]
+} -result auueue
+
+
+test str_infilter-3.5 {Verify case-insensitive matching} -body {
+  return [elem0 [db eval {select infilter_i('Albuquerque', 'aeiou');}]]
+} -result Auueue
+
+
+test str_infilter-3.6 {Verify conversion with integer match arg} -body {
+  return [elem0 [db eval {select infilter_i('Angle is 45 degrees', 45);}]]
+} -result 45
+
+
+test str_infilter-3.7 {Verify conversion with real match arg} -body {
+  return [elem0 [db eval {select infilter_i('Temp is 98.6 degrees', 8.60);}]]
+} -result 8.6
+
+
+test str_infilter-3.8 {Verify casting exponential real to text has expected result} -body {
+  return [elem0 [db eval {select infilter_i('Temp is 98.6 degrees', 0.000086);}]]
+} -result e8.6eee ;# SQLite casts 0.000086 to '8.6e-05'
+
+
+test str_infilter-3.9 {Verify correct match with Unicode characters} -body {
+  setup_unicode8 pdb
+  set a [pdb eval {select infilter_i(source, match) from test_infilter_i where id = 1;}]
+  set b [pdb eval {select result from test_infilter_i where id = 1;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+test str_infilter-3.10 {Verify correct match with Unicode characters} -body {
+  setup_unicode8 pdb
+  set a [pdb eval {select infilter_i(source, match) from test_infilter_i where id = 2;}]
+  set b [pdb eval {select result from test_infilter_i where id = 2;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests
+

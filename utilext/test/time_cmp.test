@@ -14,29 +14,30 @@ source errors.tcl
 setup db
 
 
-test null_lhs {Verify NULL return with NULL lhs arg} -body {
+test time_cmp-1.0 {Verify NULL return with NULL lhs arg} -body {
   return [elem0 [db eval {select timespan_cmp(NULL, 791137825);}]]
 } -result NULL
 
 
-test null_rhs {Verify NULL return with NULL rhs arg} -body {
+test time_cmp-1.1 {Verify NULL return with NULL rhs arg} -body {
   return [elem0 [db eval {select timespan_cmp(791137825, NULL);}]]
 } -result NULL
 
 
-test less {Verify correct less-than result} -body {
+test time_cmp-1.2 {Verify correct less-than result} -body {
   return [elem0 [db eval {select timespan_cmp(791137825, 873181779);}]]
 } -result -1
 
 
-test greater {Verify correct greater-than result} -body {
+test time_cmp-1.3 {Verify correct greater-than result} -body {
   return [elem0 [db eval {select timespan_cmp(873181779, 791137825);}]]
 } -result 1
 
 
-test equal {Verify correct equal-to result} -body {
+test time_cmp-1.4 {Verify correct equal-to result} -body {
   return [elem0 [db eval {select timespan_cmp(791137825, 791137825);}]]
 } -result 0
 
 db close
 tcltest::cleanupTests
+

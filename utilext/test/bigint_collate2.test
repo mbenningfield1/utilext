@@ -1,0 +1,127 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the 'bigint' collation sequence using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_collate-2.0 {Verify proper sequence in asc order} -body {
+  db eval {create table t1 (value TEXT COLLATE BIGINT);
+    insert into t1 values ('3DC'), ('D7E'),  ('B9D'),  ('2A0'),  ('9AF'), 
+      ('5DE'), ('C1A'), ('D5D'), ('D53'), ('AF7'), ('255'), ('C02'), ('1F1'), 
+      ('7B1'), ('928'), ('A2E'), ('1D8'), ('A13'), ('1D7'), ('DCC'), ('795'), 
+      ('F37'), ('F09'), ('0C4'), ('80');
+  }
+  set results "928 9AF A13 A2E AF7 B9D C02 C1A D53 D5D D7E DCC F09 F37 80
+    0C4 1D7 1D8 1F1 255 2A0 3DC 5DE 795 7B1"
+  set outcome [db eval {select value from t1 order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test bigint_collate-2.1 {Verify proper sequence in desc order} -body {
+  set results "7B1 795 5DE 3DC 2A0 255 1F1 1D8 1D7 0C4 80 F37 F09 DCC D7E
+    D5D D53 C1A C02 B9D AF7 A2E A13 9AF 928"
+  set outcome [db eval {select value from t1 order by value desc;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test bigint_collate-2.2 {Verify sort with nulls in asc order} -body {
+  db eval {create table t2 (value TEXT COLLATE BIGINT);
+    insert into t2 values ('3DC'), ('D7E'),  ('B9D'),  ('2A0'),  ('9AF'), 
+      ('5DE'), ('C1A'), ('D5D'), (NULL), ('D53'), ('AF7'), ('255'), ('C02'),
+      ('1F1'), ('7B1'), ('928'), (NULL), ('A2E'), ('1D8'), ('A13'), ('1D7'),
+      ('DCC'), ('795'), ('F37'), (NULL), ('F09'), ('0C4'), ('80');
+  }
+  set results "NULL NULL NULL 928 9AF A13 A2E AF7 B9D C02 C1A D53 D5D D7E DCC
+    F09 F37 80 0C4 1D7 1D8 1F1 255 2A0 3DC 5DE 795 7B1"
+  set outcome [db eval {select value from t2 order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test bigint_collate-2.3 {Verify sort with nulls in desc order} -body {
+  set results "7B1 795 5DE 3DC 2A0 255 1F1 1D8 1D7 0C4 80 F37 F09 DCC D7E
+    D5D D53 C1A C02 B9D AF7 A2E A13 9AF 928 NULL NULL NULL"
+  set outcome [db eval {select value from t2 order by value desc;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test bigint_collate-2.4 {Verify sort with invalid values in asc order} -body {
+  db eval {create table t3 (value TEXT COLLATE BIGINT);
+    insert into t3 values ('3DC'), ('D7E'),  ('B9D'),  ('2A0'),  ('9AF'), 
+      ('5DE'), ('John'), ('C1A'), ('D5D'), ('D53'), ('AF7'), ('Paul'), ('255'),
+      ('C02'), ('1F1'), ('7B1'), ('George'), ('928'), ('A2E'), ('1D8'), ('A13'),
+      ('1D7'), ('DCC'), ('795'), ('F37'), ('Ringo'), ('F09'), ('0C4'), ('80');
+  }
+  set results "George John Paul Ringo 928 9AF A13 A2E AF7 B9D C02 C1A D53 D5D
+    D7E DCC F09 F37 80 0C4 1D7 1D8 1F1 255 2A0 3DC 5DE 795 7B1"
+  set outcome [db eval {select value from t3 order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test bigint_collate-2.5 {Verify sort order with invalid values in desc order} -body {
+  set results "7B1 795 5DE 3DC 2A0 255 1F1 1D8 1D7 0C4 80 F37 F09 DCC D7E
+    D5D D53 C1A C02 B9D AF7 A2E A13 9AF 928 Ringo Paul John George"
+  set outcome [db eval {select value from t3 order by value desc;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test bigint_collate-2.6 {Verify min aggregate works with valid data} -body {
+  return [db eval {select min(value) from t1;}]
+} -result 928
+
+
+test bigint_collate-2.7 {Verify max aggregate works with valid data} -body {
+  return [db eval {select max(value) from t1;}]
+} -result 7B1
+
+
+test bigint_collate-2.8 {Verify min aggregate result is useless with invalid data} -body {
+  return [db eval {select min(value) from t3;}]
+} -result George
+
+
+test bigint_collate-2.9 {Verify < operator works as expected} -body {
+# 471	'1D7'
+# 472	'1D8'
+# 497	'1F1'
+# 597	'255'
+# 672	'2A0'
+# 500 '1F4'
+  db eval {create table t4 (value TEXT COLLATE BIGINT);
+    insert into t4 values ('1D7'), ('2A0'), ('1F1'), ('1D8'), ('255');
+  }
+  set results "1D7 1D8 1F1"
+  set outcome [db eval {select value from t4 where value < '1F4' order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test bigint_collate-2.10 {Verify > operator works as expected} -body {
+  set results "255 2A0"
+  set outcome [db eval {select value from t4 where value > '1F4' order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test bigint_collate-2.11 {Verify == operator works as expected} -body {
+  return [db eval {select value from t4 where value == '255'};]
+} -result 255
+
+
+db close
+tcltest::cleanupTests

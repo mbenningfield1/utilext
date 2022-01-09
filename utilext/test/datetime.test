@@ -22,7 +22,7 @@ db enable_load_extension true
 db eval {select load_extension('utilext.dll');}
 
 
-test unix_time {Verify round-trip from Unix to DateTime to Unix} -body {
+test datetimes-1.0 {Verify round-trip from Unix to DateTime to Unix} -body {
   set times [db eval {select unix from unixdates;}]
   for {set i 0} {$i < [llength $times]} {incr i} {
     set t [lindex $times $i]
@@ -32,7 +32,7 @@ test unix_time {Verify round-trip from Unix to DateTime to Unix} -body {
   
 } -output {}
 
-test julian_day {Verify round-trip from Julian to DateTime to Julian} -body {
+test datetimes-1.1 {Verify round-trip from Julian to DateTime to Julian} -body {
   set days [db eval {select julian from juliandates;}]
   for {set i 0} {$i < [llength $days]} {incr i} {
     set j [lindex $days $i]

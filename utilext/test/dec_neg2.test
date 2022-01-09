@@ -1,0 +1,38 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the dec_neg() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test dec_neg-2.0 {Verify NULL return for NULL arg} -body {
+  return [elem0 [db eval {select dec_neg(NULL);}]]
+} -result NULL
+
+
+test dec_neg-2.1 {Verify correct answer with positive number} -body {
+  return [elem0 [db eval {select dec_neg('3.2');}]]
+} -result -3.2
+
+
+test dec_neg-2.2 {Verify correct answer with negative number} -body {
+  return [elem0 [db eval {select dec_neg('-4.5');}]]
+} -result 4.5
+
+
+test dec_neg-2.3 {Verify parse error with non-numeric arg} -body {
+  db eval {select dec_neg('fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

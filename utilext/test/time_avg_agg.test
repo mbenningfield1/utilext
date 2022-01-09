@@ -1,0 +1,111 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the aggregate timespan_avg() window function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test time_avg_agg-1.0 {Verify 0 return with all args NULL} -body {
+  db eval {drop table if exists t1;
+    create table t1 (times INTEGER);
+    insert into t1 values (NULL), (NULL), (NULL), (NULL);
+  }
+  return [elem0 [db eval {select timespan_avg(times) from t1;}]]
+} -result 0
+
+
+test time_avg_agg-1.1 {Verify NULL args are ignored with non-NULL args} -body {
+  db eval {drop table if exists t1;
+    create table t1 (times INTEGER);
+    insert into t1 values (772672509), (NULL), (NULL),
+                          (19509582), (148801716), (118816861);
+  }
+  return [elem0 [db eval {select timespan_avg(times) from t1;}]]
+} -result 264950167
+
+
+test time_avg_agg-1.2 {Take the average of some values} -body {
+  db eval {drop table if exists t1;
+    create table t1 (times INTEGER);
+    insert into t1 values (772672509), (19509582), (148801716), (118816861);
+  }
+  return [elem0 [db eval {select timespan_avg(times) from t1;}]]
+} -result 264950167
+
+test time_avg_agg-1.3 {Verify that positive overflow results in error} -body {
+  db eval {drop table if exists t1;
+  create table t1 (times INTEGER);
+  insert into t1 values (-4611686018427387904), (-4611686018427387904), (-100);
+  }
+  db eval {select timespan_avg(times) from t1;}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test time_avg_agg-1.4 {Verify that negative overflow results in error} -body {
+  db eval {drop table if exists t1;
+  create table t1 (times INTEGER);
+  insert into t1 values (4611686018427387904), (4611686018427387904), (100);
+  }
+  db eval {select timespan_avg(times) from t1;}
+} -returnCodes 1 -result $SqliteTooBig
+
+
+test time_avg_agg-1.5 {Verify correct result with zero row count} -body {
+  db eval {drop table if exists t1;
+    create table t1 (a INTEGER);
+    insert into t1 values (123), (234), (345), (456), (567);
+  }
+  return [elem0 [db eval {select timespan_avg(a) from t1 where a > 1000;}]]
+} -result 0
+
+
+test time_avg_agg-1.6 {Verify non-numeric input is converted to 0} -body {
+  db eval {drop table if exists t1;
+    create table t1 (a);
+    insert into t1 values (123), (234), (345), ('fred'), (456);
+  }
+  return [elem0 [db eval {select timespan_avg(a) from t1;}]]
+} -result 231
+
+
+if {[db version] >= $MinVersionWindow} {
+  test time_avg_agg-1.7 {Verify window function} -body {
+    if {[db version] < "3.25.0"} {return}
+    db eval {drop table if exists t1;
+    create table t1 (x, y);
+    insert into t1 values ('a', 444487607), ('b', 596084398), ('c', 107217565),
+                          ('d', 662137852), ('e', 268647448), ('f', -444704664),
+                          ('g', 931125868), ('h', 565488857);
+    }
+    set avgs {520286002 382596523 455146605 346000955 162026878 251689550 350636687 748307362}
+    set results [db eval {
+      SELECT x, timespan_avg(y) OVER (
+        ORDER BY x ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+      ) AS total
+      FROM t1 ORDER BY x;
+    }]
+    set i 0
+    foreach {k j} $results {
+      if {$j != [lindex $avgs $i]} {puts "test_window failed with i = $i"}
+      incr i;
+    }
+  } -output {} -result {}
+}\
+else {
+  test time_avg_agg-1.7 {Empty Test} -constraints noWindowFuncs -body {
+  } -result {}
+}
+
+
+db close
+tcltest::cleanupTests
+

@@ -1,0 +1,167 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the 'decimal' collation sequence using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test dec_collate-2.0 {Verify proper sequence in ascending order} -body {
+  db eval {create table t1 (value TEXT COLLATE decimal);
+    insert into t1 values ('34517.43208'), ('4626.29009'), ('18197.12445'),
+      ('2523.33396'),   ('3405.29032'),  ('4024.3501'),   ('24142.31724'),
+      ('32817.30358'),  ('27119.22809'), ('13415.109'),   ('36564.11098'),
+      ('10306.41168'),  ('19517.34853'), ('12854.20688'), ('6212.31294'),
+      ('-43774.18559'), ('17572.38568'), ('75.25371'),    ('42395.10857'),
+      ('44733.21'),     ('44733.17018'), ('23056.21157'), ('28329.41435'),
+      ('37014.38642'),  ('41757.10318'), ('27585.25733'), ('30413.35165'),
+      ('9533.21118'),   ('29754.23419'), ('32903.13457'), ('9493.33344');
+  }
+  set results "-43774.18559 75.25371 2523.33396 3405.29032 4024.3501 4626.29009
+    6212.31294 9493.33344 9533.21118 10306.41168 12854.20688 13415.109
+    17572.38568 18197.12445 19517.34853 23056.21157 24142.31724 27119.22809
+    27585.25733 28329.41435 29754.23419 30413.35165 32817.30358 32903.13457
+    34517.43208 36564.11098 37014.38642 41757.10318 42395.10857 44733.17018
+    44733.21"
+  set outcome [db eval {select * from t1 order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-2.1 {Verify proper sequence in descending order} -body {
+  set results "44733.21 44733.17018 42395.10857 41757.10318 37014.38642
+    36564.11098 34517.43208 32903.13457 32817.30358 30413.35165 29754.23419
+    28329.41435 27585.25733 27119.22809 24142.31724 23056.21157 19517.34853
+    18197.12445 17572.38568 13415.109 12854.20688 10306.41168 9533.21118
+    9493.33344 6212.31294 4626.29009 4024.3501 3405.29032 2523.33396
+    75.25371 -43774.18559"
+  set outcome [db eval {select * from t1 order by value desc;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-2.2 {Verify sort with nulls in ascending order} -body {
+  db eval {create table t2 (value TEXT COLLATE decimal);
+    insert into t2 values ('34517.43208'), ('4626.29009'), ('18197.12445'),
+      ('2523.33396'),  ('3405.29032'),   ('4024.3501'),   (NULL),
+      ('24142.31724'), ('32817.30358'),  ('27119.22809'), ('13415.109'),   
+      ('10306.41168'), ('19517.34853'),  ('12854.20688'), ('6212.31294'),
+      (NULL),          ('-43774.18559'), ('17572.38568'), ('75.25371'),
+      ('42395.10857'), ('44733.21'),     ('44733.17018'), ('23056.21157'),
+      ('28329.41435'), ('37014.38642'),  (NULL),          ('41757.10318'),
+      ('27585.25733'), ('30413.35165'),  ('9533.21118'),  ('29754.23419'),
+      ('32903.13457'), ('9493.33344'),   ('36564.11098');
+  }
+  set results "NULL NULL NULL -43774.18559 75.25371 2523.33396 3405.29032
+    4024.3501 4626.29009 6212.31294 9493.33344 9533.21118 10306.41168
+    12854.20688 13415.109 17572.38568 18197.12445 19517.34853 23056.21157
+    24142.31724 27119.22809 27585.25733 28329.41435 29754.23419 30413.35165
+    32817.30358 32903.13457 34517.43208 36564.11098 37014.38642 41757.10318
+    42395.10857 44733.17018 44733.21"
+  set outcome [db eval {select * from t2 order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-2.3 {Verify sort with nulls in descending order} -body {
+  set results "44733.21 44733.17018 42395.10857 41757.10318 37014.38642
+    36564.11098 34517.43208 32903.13457 32817.30358 30413.35165 29754.23419
+    28329.41435 27585.25733 27119.22809 24142.31724 23056.21157 19517.34853
+    18197.12445 17572.38568 13415.109 12854.20688 10306.41168 9533.21118
+    9493.33344 6212.31294 4626.29009 4024.3501 3405.29032 2523.33396
+    75.25371 -43774.18559 NULL NULL NULL"
+  set outcome [db eval {select * from t2 order by value desc;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-2.4 {Verify sort with invalid values in ascending order} -body {
+  db eval {create table t3 (value TEXT COLLATE decimal);
+    insert into t3 values ('34517.43208'), ('4626.29009'), ('18197.12445'),
+      ('2523.33396'),  ('3405.29032'),  ('4024.3501'),   ('John'),
+      ('24142.31724'), ('32817.30358'), ('27119.22809'), ('13415.109'),
+      ('36564.11098'), ('10306.41168'), ('Paul'),        ('19517.34853'),
+      ('12854.20688'), ('6212.31294'),  ('George'),      ('-43774.18559'),
+      ('17572.38568'), ('75.25371'),    ('42395.10857'), ('44733.21'),
+      ('44733.17018'), ('23056.21157'), ('28329.41435'), ('37014.38642'),
+      ('Ringo'),       ('41757.10318'), ('27585.25733'), ('30413.35165'),
+      ('9533.21118'),  ('29754.23419'), ('32903.13457'), ('9493.33344');
+  }
+  set results "George John Paul Ringo -43774.18559 75.25371 2523.33396
+    3405.29032 4024.3501 4626.29009 6212.31294 9493.33344 9533.21118
+    10306.41168 12854.20688 13415.109 17572.38568 18197.12445 19517.34853
+    23056.21157 24142.31724 27119.22809 27585.25733 28329.41435 29754.23419
+    30413.35165 32817.30358 32903.13457 34517.43208 36564.11098 37014.38642
+    41757.10318 42395.10857 44733.17018 44733.21"
+  set outcome [db eval {select * from t3 order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-2.5 {Verify sort with invalid values in descending order} -body {
+  set results "44733.21 44733.17018 42395.10857 41757.10318 37014.38642
+    36564.11098 34517.43208 32903.13457 32817.30358 30413.35165 29754.23419
+    28329.41435 27585.25733 27119.22809 24142.31724 23056.21157 19517.34853
+    18197.12445 17572.38568 13415.109 12854.20688 10306.41168 9533.21118
+    9493.33344 6212.31294 4626.29009 4024.3501 3405.29032 2523.33396 75.25371
+    -43774.18559 Ringo Paul John George"
+  set outcome [db eval {select * from t3 order by value desc;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-2.6 {Verify min aggregate works with valid data and collation} -body {
+  return [elem0 [db eval {select min(value) from t1;}]]
+} -result -43774.18559
+
+
+test dec_collate-2.7 {Verify max aggregate works with valid data and collation} -body {
+  return [elem0 [db eval {select max(value) from t1;}]]
+} -result 44733.21
+
+
+test dec_collate-2.8 {Verify min aggregate returns useless data with invalid values} -body {
+  return [elem0 [db eval {select min(value) from t3;}]]
+} -result George
+
+
+test dec_collate-2.9 {Verify < operator works as expected} -body {
+  db eval {create table t4 (value TEXT COLLATE DECIMAL);
+    insert into t4 values ('3405.29032'), ('32817.30358'), ('10306.41168'),
+    ('6212.31294'),  ('75.25371');
+  }
+  set results "75.25371 3405.29032 6212.31294"
+  set outcome [db eval {select value from t4 where value < '10000' order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-2.10 {Verify > operator works as expected} -body {
+  db eval {create table t5 (value TEXT COLLATE DECIMAL);
+    insert into t5 values ('3405.29032'), ('32817.30358'), ('10306.41168'),
+    ('6212.31294'),  ('75.25371');
+  }
+  set results "6212.31294 10306.41168 32817.30358"
+  set outcome [db eval {select value from t5 where value > '6000' order by value;}]
+  return [listEquals $results $outcome]
+} -result {1}
+
+
+test dec_collate-2.11 {Verify == operator works as expected} -body {
+  db eval {create table t6 (value TEXT COLLATE DECIMAL);
+    insert into t6 values ('234.4443'), ('3456.222'), ('2.33');
+  }
+  return [db eval {select value from t6 where value == '234.4443';}]
+} -result 234.4443
+
+
+db close
+tcltest::cleanupTests

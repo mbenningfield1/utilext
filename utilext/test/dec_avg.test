@@ -14,37 +14,32 @@ source errors.tcl
 setup db
 
 
-test null_all {Verify a NULL return for all-NULL args} -body {
+test dec_avg-1.0 {Verify a 0 return for all-NULL args} -body {
   return [elem0 [db eval {select dec_avg(NULL, NULL, NULL);}]]
-} -result NULL
+} -result 0.0
 
 
-test null_any {Verify a NULL arg is ignored if non-NULL args are present} -body {
+test dec_avg-1.1 {Verify a NULL arg is ignored if non-NULL args are present} -body {
   return [elem0 [db eval {select dec_avg('3.25', '4.65', NULL);}]]
 } -result 3.95
 
 
-test args_zero {Verify NULL return with zero arguments} -body {
+test dec_avg-1.2 {Verify 0 return with zero arguments} -body {
   return [elem0 [db eval {select dec_avg();}]]
-} -result NULL
+} -result 0.0
 
 
-test args_one {Verify result with only one argument} -body {
-  return [elem0 [db eval {select dec_avg('3.24');}]]
-} -result 3.24
-
-
-test normal {Take the average of some numbers} -body {
+test dec_avg-1.3 {Take the average of some numbers} -body {
   return [elem0 [db eval {select dec_avg('1.5', '3.25', '4.75');}]]
 } -result 3.1666666666666666666666666667
 
 
-test invalid {Verify parse error on non-numeric input} -body {
+test dec_avg-1.4 {Verify parse error on non-numeric input} -body {
   db eval {select dec_avg('4.8', '6.5', 'fred');}
 } -returnCodes 1 -result $SqliteFormat
 
 
-test max_args {Verify that we can handle up to the limit of function args} -body {
+test dec_avg-1.5 {Verify that we can handle up to the limit of function args} -body {
   set values {
   485.4853     878.32101   207.39902    32553.21921  31744.33898
   -38290.11222 36929.5214  29275.12061  24962.48063  35481.49579
@@ -151,3 +146,4 @@ test max_args {Verify that we can handle up to the limit of function args} -body
 
 db close
 tcltest::cleanupTests
+

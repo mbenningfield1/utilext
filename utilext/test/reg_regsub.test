@@ -14,27 +14,27 @@ source errors.tcl
 setup db
 
 
-test source_null {Verify NULL return with NULL source arg} -body {
+test reg_regsub-1.0 {Verify NULL return with NULL source arg} -body {
   return [elem0 [db eval {select regsub(NULL, '\d\w', 'apple');}]]
 } -result NULL
 
 
-test pattern_null {Verify NULL return with NULL pattern arg} -body {
+test reg_regsub-1.1 {Verify NULL return with NULL pattern arg} -body {
   return [elem0 [db eval {select regsub('Hello World', NULL, 'apple');}]]
 } -result NULL
 
 
-test sub_null {Verify NULL return with NULL repl. arg} -body {
+test reg_regsub-1.2 {Verify NULL return with NULL repl. arg} -body {
   return [elem0 [db eval {select regsub('Hello World', '\d\w', NULL);}]]
 } -result NULL
 
 
-test time_null {Verify NULL return with NULL timeout arg} -body {
+test reg_regsub-1.3 {Verify NULL return with NULL timeout arg} -body {
   return [elem0 [db eval {select regsub('Hello World', '\d\w', 'apple', NULL);}]]
 } -result NULL
 
 
-test match_sub {Verify replacement with match} -body {
+test reg_regsub-1.4 {Verify replacement with match} -body {
   set source {How now brown cow}
   set result {Hegg negg breggn cegg}
   set answer [elem0 [db eval {select regsub($source, 'ow', 'egg');}]]
@@ -42,14 +42,14 @@ test match_sub {Verify replacement with match} -body {
 } -result {1}
 
 
-test no_match {Verify return with no match} -body {
+test reg_regsub-1.5 {Verify return with no match} -body {
   set source {The quick brown fox}
   set answer [elem0 [db eval {select regsub($source, '\d+', 'apple');}]]
   return [expr {$source eq $answer}]
 } -result {1}
 
 
-test time_neg {Verify regex runs with neg timeout} -body {
+test reg_regsub-1.6 {Verify regex runs with neg timeout} -body {
   set source aaaaaaaaaaaaaaaaaaaaaaa!
   set pattern {^(a+)+$}  
   set answer [elem0 [db eval {select regsub($source, $pattern, '23', -1);}]]
@@ -57,7 +57,7 @@ test time_neg {Verify regex runs with neg timeout} -body {
 } -result {1}
 
 
-test time_zero {Verify regex runs with zero timeout} -body {
+test reg_regsub-1.7 {Verify regex runs with zero timeout} -body {
   set source aaaaaaaaaaaaaaaaaaaaaaa!
   set pattern {^(a+)+$}  
   set answer [elem0 [db eval {select regsub($source, $pattern, '23', 0);}]]
@@ -65,7 +65,7 @@ test time_zero {Verify regex runs with zero timeout} -body {
 } -result {1}
 
 
-test time_pos {Verify regex runs with pos timeout} -body {
+test reg_regsub-1.8 {Verify regex runs with pos timeout} -body {
   set source {It is not in the stars to hold our destiny but in ourselves.}
   set pattern {s\b}
   set sub {23}
@@ -75,21 +75,21 @@ test time_pos {Verify regex runs with pos timeout} -body {
 } -result {1}
 
 
-test parse_err {Verify regex parsing error} -body {
+test reg_regsub-1.9 {Verify regex parsing error} -body {
   set source {I think, therefore I am.}
   set pattern {(.+}
   db eval {select regsub($source, $pattern, 'max');}
 } -returnCodes 1 -result {parsing "(.+" - Not enough )'s.}
 
 
-test timeout_err {Verify timeout error} -body {
+test reg_regsub-1.10 {Verify timeout error} -body {
   set source aaaaaaaaaaaaaaaaaaaaaaa!
   set pattern {^(a+)+$}
   db eval {select regsub($source, $pattern, '23', 500);}
 } -returnCodes 1 -result $SqliteAbort
 
 
-test unicode {Verify substitution with Unicode characters} -body {
+test reg_regsub-1.11 {Verify substitution with Unicode characters} -body {
   setup_unicode8 pdb
   set result [pdb eval {select result from test_regsub;}]
   set answer [pdb eval {select regsub(source, pattern, repl) from test_regsub;}]
@@ -100,3 +100,4 @@ test unicode {Verify substitution with Unicode characters} -body {
 
 db close
 tcltest::cleanupTests
+

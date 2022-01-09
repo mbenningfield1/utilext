@@ -1,0 +1,42 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the lower() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test str_lower-2.0 {Verify NULL return for NULL arg} -body {
+  return [elem0 [db eval {select lower(NULL);}]]
+} -result NULL
+
+
+test str_lower-2.1 {Verify empty string return for empty arg} -body {
+  return [elem0 [db eval {select lower('');}]]
+} -result {}
+
+
+test str_lower-2.2 {Convert a string to lower-case} -body {
+  return [elem0 [db eval {select lower('HelLo WoRld');}]]
+} -result {hello world}
+
+
+test str_lower-2.3 {Verify case folding with unicode chars} -body {
+  setup_unicode16 pdb
+  set a [pdb eval {select lower(source) from test_lower;}]
+  set b [pdb eval {select result from test_lower;}]
+  pdb close
+  return [string equal $a $b]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests

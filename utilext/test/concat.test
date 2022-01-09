@@ -1,0 +1,58 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the str_concat() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+test str_concat-1.0 {Verify normal result} -body {
+  return [elem0 [db eval {select str_concat(', ', 'Larry', 'Moe', 'Curly');}]]
+} -result {Larry, Moe, Curly}
+
+test str_concat-1.1 {Verify NULL args are skipped} -body {
+  return [elem0 [db eval {select str_concat(',', 'John', 'Paul', NULL, 'George', NULL, 'Ringo', NULL);}]]
+} -result John,Paul,George,Ringo
+
+test str_concat-1.2 {Verify NULL reuturn with all args NULL} -body {
+  return [elem0 [db eval {select str_concat(',', NULL, NULL, NULL, NULL);}]]
+} -result NULL
+
+test str_concat-1.3 {Verify correct result with empty separator string} -body {
+  return [elem0 [db eval {select str_concat('', 'Mathew', 'Mark', 'Luke', 'John');}]]
+} -result MathewMarkLukeJohn
+
+test str_concat-1.4 {Verify correct result with empty arg strings} -body {
+  return [elem0 [db eval {select str_concat(',', '', '', 'Elroy', '', 'Judy', '');}]]
+} -result ,,Elroy,,Judy,
+
+test str_concat-1.5 {Verify error with NULL separator arg} -body {
+  db eval {select str_concat(NULL, 'Manny', 'Moe', 'Jack');}
+} -returnCodes 1 -result $SqliteMisuse
+
+test str_concat-1.6 {Verify error with only 1 arg} -body {
+  db eval {select str_concat(',');}
+} -returnCodes 1 -result $SqliteMisuse
+
+test str_concat-1.7 {Verify error with only 2 args} -body {
+  db eval {select str_concat(',', 'Fred');}
+} -returnCodes 1 -result $SqliteMisuse
+
+test str_concat-1.8 {Verify proper result with unicode chars} -body {
+  setup_unicode8 pdb
+  set output [pdb eval {select result from test_str_concat;}]
+  set result [pdb eval {select str_concat(sep, input1, input2, input3) from test_str_concat;}]
+  pdb close
+  return [listEquals $output $result]
+} -result {1}
+
+db close
+tcltest::cleanupTests
+

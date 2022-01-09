@@ -1,0 +1,70 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_pow() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test bigint_pow-2.0 {Verify NULL return with NULL value arg} -body {
+  return [db eval {select bigint_pow(NULL, 2);}]
+} -result NULL
+
+
+test bigint_pow-2.1 {Verify NULL return with NULL exponent arg} -body {
+  return [db eval {select bigint_pow('A2B3C4', NULL);}]
+} -result NULL
+
+
+test bigint_pow-2.2 {Verify valid INTEGER value succeeds} -body {
+  # 0x365 is 869
+  return [db eval {select bigint_pow(365, 2);}]
+} -result 0B85D9
+
+
+test bigint_pow-2.3 {Verify normal result} -body {
+  return [db eval {select bigint_pow('00EB', 3);}]
+} -result 00C606D3
+
+
+test bigint_pow-2.4 {Verify invalid INTEGER value fails} -body {
+  db eval {select bigint_pow(-32, 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_pow-2.5 {Verify REAL arg fails} -body {
+  db eval {select bigint_pow(54.21, 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_pow-2.6 {Verify valid BLOB value succeeds} -body {
+  # 0x3000300046004100 is '00FA' in utf16
+  return [db eval {select bigint_pow(X'3000300046004100', 2);}]
+} -result 00F424
+
+
+test bigint_pow-2.7 {Verify invalid BLOB value fails} -body {
+  db eval {select bigint_pow(X'A2B3C4', 2);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_pow-2.8 {Verify invalid TEXT value fails} -body {
+  db eval {select bigint_pow('fred', 3);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_pow-2.9 {Verify error with negative exponent} -body {
+  db eval {select bigint_pow('00EB', -2);}
+} -returnCodes 1 -result $SqliteError
+
+
+db close
+tcltest::cleanupTests

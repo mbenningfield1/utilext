@@ -1,0 +1,53 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the dec_cmp() function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+test dec_cmp-2.0 {Verify NULL return for NULL lhs arg} -body {
+  return [elem0 [db eval {select dec_cmp(NULL, '3.2');}]]
+} -result NULL
+
+
+test dec_cmp-2.1 {Verify NULL return for NULL rhs arg} -body {
+  return [elem0 [db eval {select dec_cmp('2.3', NULL);}]]
+} -result NULL
+
+
+test dec_cmp-2.2 {Verify lhs > rhs} -body {
+  return [elem0 [db eval {select dec_cmp('3.2', '2.3');}]]
+} -result 1
+
+
+test dec_cmp-2.3 {Verify lhs == rhs} -body {
+  return [elem0 [db eval {select dec_cmp('2.3', '2.30');}]]
+} -result 0
+
+
+test dec_cmp-2.4 {Verify lhs < rhs} -body {
+  return [elem0 [db eval {select dec_cmp('3.2', '4.5');}]]
+} -result -1
+
+
+test dec_cmp-2.5 {Verify parse error on non-numeric lhs arg} -body {
+  db eval {select dec_cmp('fred', '3.2');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test dec_cmp-2.6 {Verify parse error on non-numeric rhs arg} -body {
+  db eval {select dec_cmp('3.2', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+db close
+tcltest::cleanupTests

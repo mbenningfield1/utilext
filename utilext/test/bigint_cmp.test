@@ -1,0 +1,80 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the bigint_cmp() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test bigint_cmp-1.0 {Verify NULL return for NULL lhs arg} -body {
+  return [elem0 [db eval {select bigint_cmp(NULL, '2AC');}]]
+} -result NULL
+
+
+test bigint_cmp-1.1 {Verify NULL return for NULL rhs arg} -body {
+  return [elem0 [db eval {select bigint_cmp('3B0', NULL);}]]
+} -result NULL
+
+
+test bigint_cmp-1.2 {Verify lhs > rhs} -body {
+  return [elem0 [db eval {select bigint_cmp('2AC', '22C');}]]
+} -result 1
+
+
+test bigint_cmp-1.3 {Verify lhs == rhs} -body {
+  return [elem0 [db eval {select bigint_cmp('2AC', '2AC');}]]
+} -result 0
+
+
+test bigint_cmp-1.4 {Verify lhs < rhs} -body {
+  return [elem0 [db eval {select bigint_cmp('22C', '2AC');}]]
+} -result -1
+
+
+test bigint_cmp-1.5 {Verify parse error on non-numeric lhs arg} -body {
+  db eval {select bigint_cmp('fred', '3AB');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_cmp-1.6 {Verify parse error on non-numeric rhs arg} -body {
+  db eval {select bigint_cmp('3AB', 'fred');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_cmp-1.7 {Verify fails with REAL value} -body {
+  db eval {select bigint_cmp('3AB', 34.5);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_cmp-1.8 {Verify INTEGER as valid hex string} -body {
+  return [db eval {select bigint_cmp(23246, '3AB');}]
+} -result 1
+
+
+test bigint_cmp-1.9 {Verify fails with invalid INTEGER number} -body {
+  db eval {select bigint_cmp('3AB', -34);}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_cmp-1.10 {Verify fails with invalid BLOB value} -body {
+  # 0x2a3b4c is "*;L"
+  db eval {select bigint_cmp(X'2A3B4C', '3AB');}
+} -returnCodes 1 -result $SqliteFormat
+
+
+test bigint_cmp-1.11 {Verify a valid BLOB value succeeds} -body {
+  # 0x32613362 is "2a3b"
+  return [db eval {select bigint_cmp('2A3B', '3AB');}]
+} -result 1
+
+
+db close
+tcltest::cleanupTests

@@ -1,0 +1,60 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the set_case_sensitive_like() function
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test str_set_like_case-1.0 {Verify valid boolean strings are recognized} -body {
+  set a [list true false on off yes no TRUE FALSE ON OFF YES NO True False Yes No On Off 1 0]
+  set last 0
+  for {set i 0} {$i < [llength $a]} {incr i} {
+    set b [lindex $a $i]
+    set c [db eval {select set_case_sensitive_like(:b);}]
+    if {$c != $last} {puts "test_strings failed with i = $i"}
+    set last [expr !$c]
+  }
+} -output {} -result {}
+
+
+test str_set_like_case-1.1 {Verify integer args are recognized} -body {
+  set a [db eval {select set_case_sensitive_like(1);}]
+  if {$a != 0} {puts "test_ints failed with integer 1"}
+  set a [db eval {select set_case_sensitive_like(0);}]
+  if {$a != 1} {puts "test_ints failed with integer 0";}
+} -output {} -result {}
+
+
+test str_set_like_case-1.2 {Verify status is returned for NULL arg} -body {
+  return [elem0 [db eval {select set_case_sensitive_like(NULL);}]]
+} -result 0
+
+
+test str_set_like_case-1.3 {Verify NULL return for unrecognized arg} -body {
+  return [elem0 [db eval {select set_case_sensitive_like('argle');}]]
+} -result NULL
+
+
+test str_set_like_case-1.4 {Verify setting is different per connection} -body {
+  sqlite3 db2 :memory:
+  db2 enable_load_extension true
+  db2 eval {select load_extension('utilext.dll');}
+  db eval {select set_case_sensitive_like(1);}
+  set a [db2 eval {select set_case_sensitive_like(NULL);}]
+  db2 close
+  return [expr {$a == 0}]
+} -result {1}
+
+
+db close
+tcltest::cleanupTests
+

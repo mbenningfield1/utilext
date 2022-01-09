@@ -1,0 +1,83 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the regsplit() table-valued function using UTF-16 database encoding
+#
+#===============================================================================
+
+source errors.tcl
+setup_16 db
+
+
+set HighArgs {too many arguments on regsplit() - max 3}
+set LowArgs {not enough arguments on regsplit() - min 2}
+
+test reg_regsplit-2.0 {Verify no rows returned with null input arg} -body {
+  return [db eval {select item from regsplit(NULL, ',');}]
+} -result {}
+
+test reg_regsplit-2.1 {Verify no rows returned with null pattern arg} -body {
+  return [db eval {select item from regsplit('how,now,brown,cow', NULL);}]
+} -result {}
+
+test reg_regsplit-2.2 {Verify no rows returned with null timeout arg} -body {
+  return [db eval {select item from regsplit('how,now,brown,cow', NULL);}]
+} -result {}
+
+test reg_regsplit-2.3 {Verify error on zero args supplied} -body {
+  db eval {select item from regsplit();}
+} -returnCodes 1 -result $LowArgs
+
+test reg_regsplit-2.4 {Verify error on one arg supplied} -body {
+  db eval {select item from regsplit('how,now,brown,cow');}
+} -returnCodes 1 -result $LowArgs
+
+test reg_regsplit-2.5 {Verify error on too many args supplied} -body {
+  db eval {select item from regsplit('how,now',',',34,'fred');}
+} -returnCodes 1 -result $HighArgs
+
+test reg_regsplit-2.6 {Verify negative timeout runs to completion} -body {
+  set pattern "^(a+)+\$"
+  return [db eval {select item from regsplit('aaaaaaaaaaaaaaaaaaaaaaaa!', :pattern, -1);}]
+} -result aaaaaaaaaaaaaaaaaaaaaaaa!
+
+test reg_regsplit-2.7 {Verify no timeout runs to completion} -body {
+  set pattern "^(a+)+\$"
+  return [db eval {select item from regsplit('aaaaaaaaaaaaaaaaaaaaaaaa!', :pattern);}]
+} -result aaaaaaaaaaaaaaaaaaaaaaaa!
+
+test reg_regsplit-2.8 {Verify abort error on regex timeout} -body {
+  set pattern "^(a+)+\$"
+  db eval {select item from regsplit('aaaaaaaaaaaaaaaaaaaaaaaa!', :pattern, 500);}
+} -returnCodes 1 -result $SqliteAbort
+
+test reg_regsplit-2.9 {Verify input returned on no match} -body {
+  return [db eval {select item from regsplit('how,now,brown,cow',';');}]
+} -result how,now,brown,cow
+
+test reg_regsplit-2.10 {Verify normal operation} -body {
+  return [db eval {select item from regsplit('how,now,brown,cow',',');}]
+} -result {how now brown cow}
+
+test reg_regsplit-2.11 {Verify error on invalid regex pattern} -body {
+  db eval {select item from regsplit('how,now,brown,cow', '(^\d+');}
+} -returnCodes 1 -result {parsing "(^\d+" - Not enough )'s.}
+
+test reg_regsplit-2.12 {Verify proper result with unicode chars} -body {
+  setup_unicode16 pdb
+  set output [pdb eval {select result from regsplit_results;}]
+  set input [lindex [pdb eval {select input from test_regsplit;}] 0]
+  set pattern [pdb eval {select pattern from test_regsplit;}]
+  set result [pdb eval {select item from regsplit(:input,:pattern);}]
+  pdb close
+  return [listEquals $output $result]
+} -result {1}
+
+db close
+tcltest::cleanupTests
+

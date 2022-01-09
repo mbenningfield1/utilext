@@ -14,29 +14,29 @@ source errors.tcl
 setup db
 
 
-test null_lhs {Verify NULL return for NULL lhs arg} -body {
+test time_diff-1.0 {Verify NULL return for NULL lhs arg} -body {
   return [elem0 [db eval {select timespan_diff(NULL, 23452352345);}]]
 } -result NULL
 
 
-test null_rhs {Verify NULL return for NULL rhs arg} -body {
+test time_diff-1.1 {Verify NULL return for NULL rhs arg} -body {
   return [elem0 [db eval {select timespan_diff(234524352435, NULL);}]]
 } -result NULL
 
 
-test blob_lhs {Verify error with BLOB lhs arg} -body {
+test time_diff-1.2 {Verify error with BLOB lhs arg} -body {
   set left 79674564563
   db eval {select timespan_diff(@left, 234234234234);}
 } -returnCodes 1 -result $SqliteMismatch
 
 
-test blob_rhs {Verify error with BLOB rhs arg} -body {
+test time_diff-1.3 {Verify error with BLOB rhs arg} -body {
   set right 79674564563
   db eval {select timespan_diff(234234234234, @right);}
 } -returnCodes 1 -result $SqliteMismatch
 
 
-test unix {Verify correct result with Unix time} -body {
+test time_diff-1.4 {Verify correct result with Unix time} -body {
   set ut1 [db eval {select strftime('%s', '2314-11-22T12:33:32');}]
   set ut2 [db eval {select strftime('%s', '2314-11-22T16:13:32');}]
   set ts1 132000000000 ;# 3 hr 40 min
@@ -45,21 +45,21 @@ test unix {Verify correct result with Unix time} -body {
 } -result {1}
 
 
-test unix_lhs_invalid {Verify invalid Unix time lhs arg results in error} -body {
+test time_diff-1.5 {Verify invalid Unix time lhs arg results in error} -body {
   set ut1 -62135596867;
   set ut2 [db eval {select strftime('%s', '1999-04-23T13:44:44');}]
   db eval "select timespan_diff($ut1, $ut2);"
 } -returnCodes 1 -result $SqliteError
 
 
-test unix_rhs_invalid {Verify invalid Unix time rhs arg results in error} -body {
+test time_diff-1.6 {Verify invalid Unix time rhs arg results in error} -body {
   set ut1 [db eval {select strftime('%s', '1999-04-23T13:44:44');}]
   set ut2 -62135596867;
   db eval "select timespan_diff($ut1, $ut2);"
 } -returnCodes 1 -result $SqliteError
 
 
-test julian {Verify correct result with Julian day} -body {
+test time_diff-1.7 {Verify correct result with Julian day} -body {
   set jd1 [db eval {select julianday('2314-11-22T12:33:32');}]
   set jd2 [db eval {select julianday('2314-11-23T13:13:32.234');}]
   set ts1 888002340000 ;# 1 day 40 min 234 ms
@@ -68,21 +68,21 @@ test julian {Verify correct result with Julian day} -body {
 } -result {1}
 
 
-test julian_lhs_invalid {Verify invalid Julian Day lhs arg results in error} -body {
+test time_diff-1.8 {Verify invalid Julian Day lhs arg results in error} -body {
   set jd1 21059.5
   set jd2 [db eval {select julianday('2314-11-22T12:33:32');}]
   db eval "select timespan_diff($jd1, $jd2);"
 } -returnCodes 1 -result $SqliteError
 
 
-test julian_rhs_invalid {Verify invalid Julian Day rhs arg results in error} -body {
+test time_diff-1.9 {Verify invalid Julian Day rhs arg results in error} -body {
   set jd1 [db eval {select julianday('2314-11-22T12:33:32');}]
   set jd2 21059.5
   db eval "select timespan_diff($jd1, $jd2);"
 } -returnCodes 1 -result $SqliteError
 
 
-test iso {Verify correct result with ISO string} -body {
+test time_diff-1.10 {Verify correct result with ISO string} -body {
   set dt1 "2314-11-22T12:33:32"
   set dt2 "2314-11-21T11:53:31.766"
   set ts1 888002340000 ;# 1 day 40 min 234 ms
@@ -91,21 +91,21 @@ test iso {Verify correct result with ISO string} -body {
 } -result {1}
 
 
-test iso_lhs_invalid {Verify invalid ISO string lhs arg results in error} -body {
+test time_diff-1.11 {Verify invalid ISO string lhs arg results in error} -body {
   set dt1 fred
   set dt2 2314-11-22T12:33:32
   db eval {select timespan_diff($dt1, $dt2);}
 } -returnCodes 1 -result $SqliteFormat
 
 
-test iso_rhs_invalid {Verify invalid ISO string rhs arg results in error} -body {
+test time_diff-1.12 {Verify invalid ISO string rhs arg results in error} -body {
   set dt1 2314-11-22T12:33:32
   set dt2 fred
   db eval {select timespan_diff($dt1, $dt2);}
 } -returnCodes 1 -result $SqliteFormat
 
 
-test mixed_unix_julian {Verify correct result with lhs Unix time and rhs Julian day} -body {
+test time_diff-1.13 {Verify correct result with lhs Unix time and rhs Julian day} -body {
   set ut [db eval {select strftime('%s', '2314-11-22T12:33:32');}]
   set jd [db eval {select julianday('2314-11-22T07:53:32');}]
   set ts1 168000000000 ;# 4 hr 40 min
@@ -114,7 +114,7 @@ test mixed_unix_julian {Verify correct result with lhs Unix time and rhs Julian 
 } -result {1}
 
 
-test mixed_julian_unix {Verify correct result with lhs Julian day and rhs Unix time} -body {
+test time_diff-1.14 {Verify correct result with lhs Julian day and rhs Unix time} -body {
   set ut [db eval {select strftime('%s', '2314-11-22T07:53:32');}]
   set jd [db eval {select julianday('2314-11-22T12:33:32');}]
   set ts1 168000000000 ;# 4 hr 40 min
@@ -123,7 +123,7 @@ test mixed_julian_unix {Verify correct result with lhs Julian day and rhs Unix t
 } -result {1}
 
 
-test mixed_unix_iso {Verify correct result with lhs Unix time and rhs ISO string} -body {
+test time_diff-1.15 {Verify correct result with lhs Unix time and rhs ISO string} -body {
   set ut [db eval {select strftime('%s', '2314-11-22T12:33:32');}]
   set ts1 168000000000 ;# 4 hr 40 min
   set ts2 [db eval "select timespan_diff($ut, '2314-11-22T07:53:32');"]
@@ -131,7 +131,7 @@ test mixed_unix_iso {Verify correct result with lhs Unix time and rhs ISO string
 } -result {1}
 
 
-test mixed_iso_unix {Verify correct result with lhs ISO string and rhs Unix time} -body {
+test time_diff-1.16 {Verify correct result with lhs ISO string and rhs Unix time} -body {
   set ut [db eval {select strftime('%s', '2314-11-22T07:53:32');}]
   set ts1 168000000000 ;# 4 hr 40 min
   set ts2 [db eval "select timespan_diff('2314-11-22T12:33:32', $ut);"]
@@ -139,7 +139,7 @@ test mixed_iso_unix {Verify correct result with lhs ISO string and rhs Unix time
 } -result {1}
 
 
-test mixed_julian_iso {Verify correct result with lhs Julian day and rhs ISO string} -body {
+test time_diff-1.17 {Verify correct result with lhs Julian day and rhs ISO string} -body {
   set jd [db eval {select julianday('2314-11-22T12:33:32');}]
   set ts1 168000000000 ;# 4 hr 40 min
   set ts2 [db eval "select timespan_diff($jd, '2314-11-22T07:53:32');"]
@@ -147,7 +147,7 @@ test mixed_julian_iso {Verify correct result with lhs Julian day and rhs ISO str
 } -result {1}
 
 
-test mixed_iso_julian {Verify correct result with lhs ISO string and rhs Julian day} -body {
+test time_diff-1.18 {Verify correct result with lhs ISO string and rhs Julian day} -body {
   set jd [db eval {select julianday('2314-11-22T07:53:32');}]
   set ts1 168000000000 ;# 4 hr 40 min
   set ts2 [db eval "select timespan_diff('2314-11-22T12:33:32', $jd);"]
@@ -157,3 +157,4 @@ test mixed_iso_julian {Verify correct result with lhs ISO string and rhs Julian 
 
 db close
 tcltest::cleanupTests
+

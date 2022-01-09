@@ -3,9 +3,10 @@ This folder contains the test files for the utilext extension.
 All of the test files use the tcltest package, which should come with any
 standard Tcl/Tk distribution.
 
-Each extension function has its corresponding test files, split between UTF-8
-and UTF-16 tests. There is quite a bit of duplication from one encoding to the
-other, because the UTF-16 tests simply verify that path through the code.
+Each extension function has its corresponding test files, sequentially numbered
+for each function for each succeeding group of tests for that function. This is
+usually a separate set of tests for UTF-16 text encoding, but some functions
+have additional test files beyond that.
 
 Assuming you have a local installation of Tcl, you will need to copy the correct
 Tcl-enabled sqlite library into the proper location in your Tcl installation.
@@ -33,6 +34,10 @@ If you define one or more of the pre-processor symbols to omit groups of
 functions, like UTILEXT_OMIT_DECIMAL or UTILEXT_OMIT_STRING, then the tests that
 belong to those types of functions will of course fail, like the dec*.test or
 the str*.test test files.
+
+The 'BuildTest' directory contains the test scripts to test the build for every
+combination of pre-processor symbols. That test takes quite a while to run, so
+it's usually best to wait until final testing before running that test.
 
 There are 3 database files included in the test folder. The 'datetimes.db'
 database contains random Unix timestamps and Julian day values to test the

@@ -14,7 +14,7 @@ source errors.tcl
 setup db
 
 
-test normal {Take the average of a column} -body {
+test dec_avg_agg-1.0 {Take the average of a column} -body {
   set sqlOne {
     create table t1(id INTEGER PRIMARY KEY, value TEXT);
     insert into t1 values    (NULL, '16152.35846'), (NULL, '1549.38831'),
@@ -40,7 +40,7 @@ test normal {Take the average of a column} -body {
 } -result 21235.5701802
 
 
-test nulls {Verify NULL column values are ignored if any are non-NULL} -body {
+test dec_avg_agg-1.1 {Verify NULL column values are ignored if any are non-NULL} -body {
   set sqlTwo {
     create table t2(id INTEGER PRIMARY KEY, value TEXT);
     insert into t2 values    (NULL, '24473.10381'), (NULL, '9118.32918'),
@@ -58,7 +58,7 @@ test nulls {Verify NULL column values are ignored if any are non-NULL} -body {
 } -result 17693.011201363636363636363636
 
 
-test all_null {Verify that a column with only NULL values returns 0.0} -body {
+test dec_avg_agg-1.2 {Verify that a column with only NULL values returns 0.0} -body {
   set sqlThree {
     create table t3(id INTEGER PRIMARY KEY, value TEXT);
     insert into t3 values (NULL, NULL), (NULL, NULL), (NULL, NULL);
@@ -68,7 +68,7 @@ test all_null {Verify that a column with only NULL values returns 0.0} -body {
 } -result 0.0
 
 
-test invalid {Verify a parse error on non-numeric column values} -body {
+test dec_avg_agg-1.3 {Verify a parse error on non-numeric column values} -body {
   set sqlFour {
     create table t4(id INTEGER PRIMARY KEY, value TEXT);
     insert into t4 values (NULL, '345.55'), (NULL, '3778.21111'), (NULL, 'fred');
@@ -78,7 +78,7 @@ test invalid {Verify a parse error on non-numeric column values} -body {
 } -returnCodes 1 -result $SqliteFormat
 
 
-test no_rows {Verify correct result with zero row count} -body {
+test dec_avg_agg-1.4 {Verify correct result with zero row count} -body {
   db eval {drop table if exists t1;
     create table t1 (a TEXT COLLATE DECIMAL);
     insert into t1 values ('12.3'), ('23.4'), ('34.5'), ('45.6'), ('56.7');
@@ -88,7 +88,7 @@ test no_rows {Verify correct result with zero row count} -body {
 
 
 if {[db version] >= $MinVersionWindow} {
-  test window {Verify that the function works as a window function} -body {
+  test dec_avg_agg-1.5 {Verify that the function works as a window function} -body {
     set sqlFive {
       create table t5(x, y);
       insert into t5 values ('a', '42.60'), ('b', '56.84'),
@@ -106,11 +106,13 @@ if {[db version] >= $MinVersionWindow} {
       incr i;
     }
   } -output {} -result {}
-} else {
-  test window {Empty test} -constraints noWindowFuncs -body {
+}\
+else {
+  test dec_avg_agg-1.5 {Empty test} -constraints noWindowFuncs -body {
   } -result {}
 }
 
 
 db close
 tcltest::cleanupTests
+

@@ -1,0 +1,85 @@
+#===============================================================================
+#
+# Written by: Mark Benningfield
+#
+# LICENSE: Public Domain -- see the file LICENSE.txt
+#
+#===============================================================================
+#
+# Tests for the set_culture() function
+#
+# Depending on the localized version of Windows on the test machine and the
+# NET Framework version installed, these tests may have to be modified to
+# reflect the initial and subsequent invalid locale identifiers.
+#
+#===============================================================================
+
+source errors.tcl
+setup db
+
+
+test str_set_culture-1.0 { Verify the current culture is returned with a NULL arg} -body {
+  return [elem0 [db eval {select set_culture(NULL);}]]
+} -result 1033
+
+
+test str_set_culture-1.1 { Verify the invariant culture is used with an empty string arg} -body {
+  set a [elem0 [db eval {select set_culture('');}]]
+  set b [elem0 [db eval {select set_culture(NULL);}]]
+  return [list $a $b]
+} -result {1033 127}
+
+
+test str_set_culture-1.2 { Verify that a valid culture name succeeds} -body {
+  set a [elem0 [db eval {select set_culture('de-DE');}]]  ;# last set Invariant 127
+  set b [elem0 [db eval {select set_culture(NULL);}]]     ;# German 1031
+  return [list $a $b]
+} -result {127 1031}
+
+
+test str_set_culture-1.3 { Verify that a hexadecimal integer value succeeds} -body {
+  set a [elem0 [db eval {select set_culture(0x406);}]]  ;# last set German 1031
+  set b [elem0 [db eval {select set_culture(NULL);}]]  ;# Danish 1030
+  return [list $a $b]
+} -result {1031 1030}
+
+
+test str_set_culture-1.4 { Verify that a hexadecimal string succeeds} -body {
+  set a [elem0 [db eval {select set_culture('0x408');}]]  ;# last set Danish 1030
+  set b [elem0 [db eval {select set_culture(NULL);}]]     ;# Greek 1032
+  return [list $a $b]
+} -result {1030 1032}
+
+
+test str_set_culture-1.5 { Verify that a decimal integer succeeds} -body {
+  set a [elem0 [db eval {select set_culture(1035);}]] ;# last set Greek 1032
+  set b [elem0 [db eval {select set_culture(NULL);}]] ;# Finnish 1035
+  return [list $a $b]
+} -result {1032 1035}
+
+
+test str_set_culture-1.6 { Verify that a decimal integer string succeeds} -body {
+  set a [elem0 [db eval {select set_culture('1033');}]] ;# last set Finnish 1035
+  set b [elem0 [db eval {select set_culture(NULL);}]]   ;# English 1033
+  return [list $a $b]
+} -result {1035 1033}
+
+
+test str_set_culture-1.7 { Verify a culture error on an unknown culture name} -body {
+  db eval {select set_culture('argle');}
+} -returnCodes 1 -result $SqliteNotFound
+
+
+test str_set_culture-1.8 { Verify a culture error with an unknown LCID} -body {
+  db eval {select set_culture(255);}
+} -returnCodes 1 -result $SqliteNotFound
+
+
+test str_set_culture-1.9 { Verify a culture error with a hex string that is an invalid LCID} -body {
+  db eval {select set_culture('0xff');}
+} -returnCodes 1 -result $SqliteNotFound
+
+
+db close
+tcltest::cleanupTests
+
